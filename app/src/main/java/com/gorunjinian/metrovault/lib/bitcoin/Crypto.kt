@@ -7,6 +7,7 @@ import com.gorunjinian.metrovault.lib.bitcoin.crypto.Digest
 import com.gorunjinian.metrovault.lib.bitcoin.crypto.hmac
 import com.gorunjinian.metrovault.lib.bitcoin.io.ByteArrayInput
 import fr.acinq.secp256k1.Secp256k1
+import java.security.SecureRandom
 import kotlin.jvm.JvmStatic
 
 object Crypto {
@@ -160,7 +161,10 @@ object Crypto {
      * @param data data to sign (32 bytes)
      * @param privateKey private key
      * @param taprootTweak optional tweak for taproot key path spending. If null, the private key is used as-is (for script path spending).
-     * @param auxrand32 optional auxiliary random data
+     * @param auxrand32 auxiliary random data. When null, 32 fresh bytes from SecureRandom are used, as
+     *                  recommended by BIP-340: random aux hardens the nonce against fault-injection and
+     *                  differential side-channel attacks, and cannot weaken it (the nonce stays seeded by
+     *                  key and message). Pass [ByteVector32.Zeroes] for fully deterministic signatures.
      * @return the Schnorr signature of data with private key (optionally tweaked with the tapscript merkle root)
      */
     @JvmStatic
@@ -170,7 +174,8 @@ object Crypto {
             is TaprootTweak.NoScriptTweak -> privateKey.tweak(privateKey.xOnlyPublicKey().tweak(taprootTweak))
             is TaprootTweak.ScriptTweak -> privateKey.tweak(privateKey.xOnlyPublicKey().tweak(taprootTweak))
         }
-        val sig = Secp256k1.signSchnorr(data.toByteArray(), priv.value.toByteArray(), auxrand32?.toByteArray()).byteVector64()
+        val aux = auxrand32 ?: ByteVector32(ByteArray(32).also { SecureRandom().nextBytes(it) })
+        val sig = Secp256k1.signSchnorr(data.toByteArray(), priv.value.toByteArray(), aux.toByteArray()).byteVector64()
         require(verifySignatureSchnorr(data, sig, priv.xOnlyPublicKey())) { "Cannot create Schnorr signature" }
         return sig
     }

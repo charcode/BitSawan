@@ -101,13 +101,18 @@ class TaprootTest {
         assertTrue(Crypto.verifySignatureSchnorr(hash, ourSig, outputKey))
         assertTrue(Secp256k1.verifySchnorr(ourSig.toByteArray(), hash.toByteArray(), outputKey.value.toByteArray()))
 
-        // Auxiliary random data zero == no aux data
+        // Null aux data draws fresh randomness per signature (BIP-340 recommendation)
+        val ourSigAgain = Crypto.signSchnorr(hash, key.privateKey, Crypto.TaprootTweak.NoScriptTweak)
+        assertNotEquals(ourSig, ourSigAgain)
+        assertTrue(Crypto.verifySignatureSchnorr(hash, ourSigAgain, outputKey))
+
+        // Explicit aux data keeps signatures deterministic
         val ourSig1 = Crypto.signSchnorr(hash, key.privateKey, Crypto.TaprootTweak.NoScriptTweak, ByteVector32.Zeroes)
-        assertEquals(ourSig, ourSig1)
+        assertEquals(ourSig1, Crypto.signSchnorr(hash, key.privateKey, Crypto.TaprootTweak.NoScriptTweak, ByteVector32.Zeroes))
 
         // Aux data non-zero changes signature
         val ourSig2 = Crypto.signSchnorr(hash, key.privateKey, Crypto.TaprootTweak.NoScriptTweak, ByteVector32.One)
-        assertNotEquals(ourSig, ourSig2)
+        assertNotEquals(ourSig1, ourSig2)
     }
 
     @Test
@@ -320,7 +325,7 @@ class TaprootTest {
         )
         val sig = Transaction.signInputTaprootKeyPath(
             privs[0], tmp, 0, listOf(fundingTx.txOut[0]),
-            SigHash.SIGHASH_DEFAULT, scriptTree
+            SigHash.SIGHASH_DEFAULT, scriptTree, auxrand32 = ByteVector32.Zeroes
         )
         val tx = tmp.updateWitness(0, Script.witnessKeyPathPay2tr(sig))
         assertEquals(
