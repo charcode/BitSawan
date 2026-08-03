@@ -587,7 +587,12 @@ fun WalletCard(
                         quickShortcuts.forEach { shortcut ->
                             QuickActionButton(
                                 icon = shortcut.iconRes,
-                                label = shortcut.label,
+                                // SP wallets have a single receive address, so use singular label
+                                label = if (isSilentPayment && shortcut == QuickShortcut.VIEW_ADDRESSES) {
+                                    "Address"
+                                } else {
+                                    shortcut.label
+                                },
                                 onClick = { onShortcutClick(shortcut) }
                             )
                         }
