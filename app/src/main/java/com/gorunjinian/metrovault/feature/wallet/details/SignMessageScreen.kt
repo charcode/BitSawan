@@ -25,30 +25,18 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gorunjinian.metrovault.R
-import com.gorunjinian.metrovault.core.qr.AnimatedQRResult
-import com.gorunjinian.metrovault.core.qr.AnimatedQRScanner
-import com.gorunjinian.metrovault.core.qr.OutputFormat
-import com.gorunjinian.metrovault.core.qr.QRCodeUtils
 import com.gorunjinian.metrovault.core.qr.QRDensity
 import com.gorunjinian.metrovault.core.ui.components.SecureOutlinedTextField
 import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
-import com.gorunjinian.metrovault.data.model.DerivationPaths
-import com.gorunjinian.metrovault.domain.Wallet
-import com.gorunjinian.metrovault.domain.service.bitcoin.WalletMessageSigner
-import com.gorunjinian.metrovault.domain.service.psbt.PSBTDecoder
 import com.gorunjinian.metrovault.feature.transaction.components.PSBTScannerView
 import com.gorunjinian.metrovault.feature.transaction.components.SignedPSBTDisplay
 import com.gorunjinian.metrovault.lib.bitcoin.MessageSigning
 import com.journeyapps.barcodescanner.CompoundBarcodeView
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
-
-/** What a single-shot scan fills in. PSBT frames are format-detected, independent of this. */
-private enum class ScanTarget { ADDRESS, MESSAGE }
 
 /**
  * Sign/Verify Message Screen.
@@ -57,65 +45,29 @@ private enum class ScanTarget { ADDRESS, MESSAGE }
  * Silent-payment wallets are BIP-322 only, and sign via the watching wallet's message-PSBT QR:
  * scanning it only fills in the request (address + message) — the user reviews and presses Sign —
  * and the signed PSBT is then presented with [SignedPSBTDisplay], the same animated multi-format
- * QR display used by the Sign PSBT flow. All wallet and protocol logic lives in
- * [WalletMessageSigner]; this file is UI only.
+ * QR display used by the Sign PSBT flow. All flow state and protocol calls live in
+ * [SignMessageViewModel]; this file is UI plus camera plumbing only.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignMessageScreen(
-    wallet: Wallet,
+    viewModel: SignMessageViewModel = viewModel(),
     onBack: () -> Unit,
     prefilledAddress: String? = null
 ) {
-    var addressInput by remember { mutableStateOf(prefilledAddress ?: "") }
-    var messageInput by remember { mutableStateOf("") }
-    var signatureInput by remember { mutableStateOf("") }
+    val uiState by viewModel.uiState.collectAsState()
 
-    var isProcessing by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-    var successMessage by remember { mutableStateOf("") }
-
-    var isScanning by remember { mutableStateOf(false) }
     var hasCameraPermission by remember { mutableStateOf(false) }
-    var scanTarget by remember { mutableStateOf(ScanTarget.ADDRESS) }
-
-    // Scanner state — shares the Scan PSBT viewfinder (PSBTScannerView) so both look identical
-    val animatedScanner = remember { AnimatedQRScanner(PSBTDecoder::decode) }
-    var scanProgress by remember { mutableIntStateOf(0) }
-    var isAnimatedScan by remember { mutableStateOf(false) }
     var barcodeView: CompoundBarcodeView? by remember { mutableStateOf(null) }
     var isLifecycleResumed by remember { mutableStateOf(false) }
-
-    // SP receive addresses are one-off taproot keys: only BIP-322 binds a signature to them,
-    // so the ECDSA formats are disabled for silent-payment wallets.
-    val isSilentPayment = DerivationPaths.getPurpose(wallet.getActiveWalletDerivationPath()) == 352
-
-    // Signature format: Electrum (default), BIP-137, or BIP-322 (forced for SP wallets)
-    var signatureFormat by remember {
-        mutableStateOf(if (isSilentPayment) MessageSigning.SignatureFormat.BIP322 else MessageSigning.SignatureFormat.ELECTRUM)
-    }
-
-    // Bare signature QR dialog
-    var signatureQRBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-    var showSignatureQR by remember { mutableStateOf(false) }
-
-    // A scanned-but-not-yet-signed BIP-322 message PSBT: signing waits for the Sign button.
-    // Cleared when the user edits the request fields (the PSBT commits to the scanned values).
-    var pendingMessagePsbt by remember { mutableStateOf<String?>(null) }
-
-    // The signed message PSBT, displayed via SignedPSBTDisplay for the watching wallet to scan.
-    var signedMessagePsbt by remember { mutableStateOf<String?>(null) }
-    var signedQRResult by remember { mutableStateOf<AnimatedQRResult?>(null) }
-    var showSignedPsbtDisplay by remember { mutableStateOf(false) }
-    var currentDisplayFrame by remember { mutableIntStateOf(0) }
-    var selectedOutputFormat by remember { mutableStateOf(OutputFormat.UR_LEGACY) }
-    var selectedDensity by remember { mutableStateOf(QRDensity.HIGH) }
     var showDensityMenu by remember { mutableStateOf(false) }
-    var isQRPaused by remember { mutableStateOf(false) }
-    var isRegeneratingQR by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
+
+    LaunchedEffect(Unit) {
+        viewModel.applyPrefilledAddress(prefilledAddress)
+    }
 
     // Camera permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -123,12 +75,12 @@ fun SignMessageScreen(
     ) { granted ->
         hasCameraPermission = granted
         if (granted) {
-            isScanning = true
+            viewModel.startScanning()
         }
     }
 
     // Camera lifecycle (mirrors ScanPSBTScreen): resume only when the view exists, the lifecycle
-    // is resumed, and the scanner is on screen; reset the joiner whenever a scan session starts.
+    // is resumed, and the scanner is on screen.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -147,197 +99,32 @@ fun SignMessageScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    LaunchedEffect(barcodeView, isLifecycleResumed, isScanning) {
-        if (barcodeView != null && isLifecycleResumed && isScanning) {
+    LaunchedEffect(barcodeView, isLifecycleResumed, uiState.isScanning) {
+        if (barcodeView != null && isLifecycleResumed && uiState.isScanning) {
             barcodeView?.resume()
         }
     }
-    LaunchedEffect(isScanning) {
-        if (isScanning) {
-            animatedScanner.reset()
-            scanProgress = 0
-            isAnimatedScan = false
-        } else {
+    LaunchedEffect(uiState.isScanning) {
+        if (!uiState.isScanning) {
             barcodeView?.pause()
             barcodeView = null
         }
     }
 
-    // Determine button state: Sign if address+message only, Verify if all three
-    val canSign = addressInput.isNotBlank() && messageInput.isNotBlank() && signatureInput.isBlank()
-    val canVerify = addressInput.isNotBlank() && messageInput.isNotBlank() && signatureInput.isNotBlank()
-
-    fun clearStatus() {
-        errorMessage = ""
-        successMessage = ""
-    }
-
     /** Advance the animated signed-PSBT QR while it's visible. */
-    LaunchedEffect(signedQRResult, isQRPaused, showSignedPsbtDisplay) {
-        val result = signedQRResult ?: return@LaunchedEffect
-        if (showSignedPsbtDisplay && result.isAnimated && result.frames.size > 1 && !isQRPaused) {
+    LaunchedEffect(uiState.signedQRResult, uiState.isQRPaused, uiState.showSignedPsbtDisplay) {
+        val result = uiState.signedQRResult ?: return@LaunchedEffect
+        if (uiState.showSignedPsbtDisplay && result.isAnimated && result.frames.size > 1 && !uiState.isQRPaused) {
             while (true) {
                 delay(result.recommendedFrameDelayMs.milliseconds)
-                if (!isQRPaused) {
-                    currentDisplayFrame = (currentDisplayFrame + 1) % result.frames.size
-                }
+                viewModel.advanceDisplayFrame()
             }
         }
-    }
-
-    /** Regenerate the signed-PSBT QR for the current format/density, keeping the old QR on failure. */
-    fun regenerateSignedQr() {
-        val psbt = signedMessagePsbt ?: return
-        currentDisplayFrame = 0
-        isRegeneratingQR = true
-        val previousResult = signedQRResult
-        scope.launch {
-            val newQR = withContext(Dispatchers.Default) {
-                QRCodeUtils.generateSmartPSBTQR(psbt, format = selectedOutputFormat, density = selectedDensity)
-            }
-            signedQRResult = newQR ?: previousResult
-            isRegeneratingQR = false
-        }
-    }
-
-    fun signOrVerify() {
-        scope.launch {
-            isProcessing = true
-            clearStatus()
-            try {
-                if (canSign) {
-                    val pending = pendingMessagePsbt
-                    if (pending != null) {
-                        // A scanned message-signing PSBT: sign it and show the signed PSBT QR.
-                        val result = withContext(Dispatchers.Default) {
-                            WalletMessageSigner.signMessagePsbt(wallet, pending)
-                        }
-                        result.fold(
-                            onSuccess = { signed ->
-                                signatureInput = signed.signature
-                                successMessage = "Message signed successfully ✓"
-                                signedMessagePsbt = signed.signedPsbtBase64
-                                signedQRResult = withContext(Dispatchers.Default) {
-                                    QRCodeUtils.generateSmartPSBTQR(
-                                        signed.signedPsbtBase64,
-                                        format = selectedOutputFormat,
-                                        density = selectedDensity
-                                    )
-                                }
-                                currentDisplayFrame = 0
-                                if (signedQRResult != null) {
-                                    showSignedPsbtDisplay = true
-                                } else {
-                                    errorMessage = "Failed to generate QR code"
-                                }
-                            },
-                            onFailure = { error ->
-                                errorMessage = error.message ?: "Failed to sign the message PSBT"
-                            }
-                        )
-                    } else {
-                        val result = withContext(Dispatchers.Default) {
-                            WalletMessageSigner.signWithAddress(wallet, addressInput, messageInput, signatureFormat, isSilentPayment)
-                        }
-                        result.fold(
-                            onSuccess = { signature ->
-                                signatureInput = signature
-                                successMessage = "Message signed successfully ✓"
-                            },
-                            onFailure = { error ->
-                                errorMessage = error.message ?: "Failed to sign message"
-                            }
-                        )
-                    }
-                } else if (canVerify) {
-                    val outcome = withContext(Dispatchers.Default) {
-                        WalletMessageSigner.verify(addressInput, messageInput, signatureInput, signatureFormat)
-                    }
-                    if (outcome.isValid) {
-                        val formatName = outcome.detectedFormat?.displayName ?: "Unknown"
-                        successMessage = "Signature is valid ✓ (Format: $formatName)"
-                        outcome.detectedFormat?.let { signatureFormat = it }
-                    } else {
-                        errorMessage = "Signature is invalid ✗"
-                    }
-                }
-            } catch (e: Exception) {
-                errorMessage = e.message ?: "An error occurred"
-            } finally {
-                isProcessing = false
-            }
-        }
-    }
-
-    /** A scanned BIP-322 message-signing PSBT: validate and fill the request, don't sign yet. */
-    fun stageScannedMessagePsbt(psbtBase64: String) {
-        scope.launch {
-            isProcessing = true
-            clearStatus()
-            try {
-                val result = withContext(Dispatchers.Default) {
-                    WalletMessageSigner.parseMessagePsbtRequest(wallet, psbtBase64)
-                }
-                result.fold(
-                    onSuccess = { request ->
-                        addressInput = request.address
-                        messageInput = request.message
-                        signatureInput = ""
-                        signatureFormat = MessageSigning.SignatureFormat.BIP322
-                        pendingMessagePsbt = psbtBase64
-                        successMessage = "Message-signing request."
-                    },
-                    onFailure = { error ->
-                        errorMessage = error.message ?: "Could not read the message-signing PSBT"
-                    }
-                )
-            } finally {
-                isProcessing = false
-            }
-        }
-    }
-
-    fun handleSingleScan(result: String) {
-        when (scanTarget) {
-            ScanTarget.ADDRESS -> {
-                // Extract address from bitcoin: URI if present
-                addressInput = if (result.startsWith("bitcoin:", ignoreCase = true)) {
-                    result.substringAfter(":").substringBefore("?")
-                } else {
-                    result
-                }
-                pendingMessagePsbt = null
-            }
-            ScanTarget.MESSAGE -> {
-                // Sparrow-style "signmessage <path> ascii:<message>" QR, or a plain message
-                if (result.startsWith("signmessage ", ignoreCase = true)) {
-                    val parsed = WalletMessageSigner.parseSignMessageQr(wallet, result)
-                    if (parsed != null) {
-                        addressInput = parsed.first
-                        messageInput = parsed.second
-                        pendingMessagePsbt = null
-                    } else {
-                        errorMessage = "Could not parse signmessage QR or derive address"
-                    }
-                } else {
-                    messageInput = result
-                    pendingMessagePsbt = null
-                }
-            }
-        }
-    }
-
-    fun clearAll() {
-        addressInput = ""
-        messageInput = ""
-        signatureInput = ""
-        pendingMessagePsbt = null
-        clearStatus()
     }
 
     // Back gesture: close the scanner or the signed-PSBT display before leaving the screen
-    BackHandler(enabled = isScanning || showSignedPsbtDisplay) {
-        if (isScanning) isScanning = false else showSignedPsbtDisplay = false
+    BackHandler(enabled = uiState.isScanning || uiState.showSignedPsbtDisplay) {
+        if (uiState.isScanning) viewModel.stopScanning() else viewModel.setShowSignedPsbtDisplay(false)
     }
 
     Scaffold(
@@ -345,8 +132,12 @@ fun SignMessageScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (isScanning) {
-                            if (scanTarget == ScanTarget.ADDRESS) "Scan Address QR" else "Scan Message QR"
+                        if (uiState.isScanning) {
+                            if (uiState.scanTarget == SignMessageViewModel.ScanTarget.ADDRESS) {
+                                "Scan Address QR"
+                            } else {
+                                "Scan Message QR"
+                            }
                         } else {
                             "Sign/Verify Message"
                         }
@@ -355,8 +146,8 @@ fun SignMessageScreen(
                 navigationIcon = {
                     IconButton(onClick = {
                         when {
-                            isScanning -> isScanning = false
-                            showSignedPsbtDisplay -> showSignedPsbtDisplay = false
+                            uiState.isScanning -> viewModel.stopScanning()
+                            uiState.showSignedPsbtDisplay -> viewModel.setShowSignedPsbtDisplay(false)
                             else -> onBack()
                         }
                     }) {
@@ -365,7 +156,7 @@ fun SignMessageScreen(
                 },
                 actions = {
                     // QR density control, only while the signed message PSBT is displayed
-                    if (showSignedPsbtDisplay && signedQRResult != null) {
+                    if (uiState.showSignedPsbtDisplay && uiState.signedQRResult != null) {
                         Box {
                             IconButton(onClick = { showDensityMenu = true }) {
                                 Icon(
@@ -381,13 +172,10 @@ fun SignMessageScreen(
                                     DropdownMenuItem(
                                         text = { Text(density.displayName) },
                                         onClick = {
-                                            if (density != selectedDensity) {
-                                                selectedDensity = density
-                                                regenerateSignedQr()
-                                            }
+                                            viewModel.setDensity(density)
                                             showDensityMenu = false
                                         },
-                                        leadingIcon = if (selectedDensity == density) {
+                                        leadingIcon = if (uiState.selectedDensity == density) {
                                             {
                                                 Icon(
                                                     painter = painterResource(R.drawable.ic_check),
@@ -407,79 +195,65 @@ fun SignMessageScreen(
             )
         }
     ) { padding ->
-        if (showSignatureQR && signatureQRBitmap != null) {
+        val signatureQRBitmap = uiState.signatureQRBitmap
+        if (uiState.showSignatureQR && signatureQRBitmap != null) {
             SignatureQrDialog(
-                bitmap = signatureQRBitmap!!,
-                onDismiss = { showSignatureQR = false }
+                bitmap = signatureQRBitmap,
+                onDismiss = { viewModel.dismissSignatureQr() }
             )
         }
 
         when {
-            isScanning -> {
+            uiState.isScanning -> {
                 // The exact Scan PSBT viewfinder (frame flash + animated-QR progress card), with
                 // plain payloads (addresses, messages) delivered as a single-shot scan.
                 PSBTScannerView(
                     hasCameraPermission = hasCameraPermission,
-                    animatedScanner = animatedScanner,
-                    scanProgress = scanProgress,
-                    isAnimatedScan = isAnimatedScan,
+                    animatedScanner = viewModel.animatedScanner,
+                    scanProgress = uiState.scanProgress,
+                    isAnimatedScan = uiState.isAnimatedScan,
                     errorMessage = "",
                     onRequestPermission = { permissionLauncher.launch(Manifest.permission.CAMERA) },
                     onScanProgress = { progress, animated ->
-                        scanProgress = progress
-                        isAnimatedScan = animated
+                        viewModel.onScanProgress(progress, animated)
                     },
                     onScanComplete = { psbt, _ ->
-                        isScanning = false
-                        stageScannedMessagePsbt(psbt)
+                        viewModel.onScanComplete(psbt)
                     },
                     onBarcodeViewCreated = { barcodeView = it },
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
                     onPlainScan = { result ->
-                        handleSingleScan(result)
-                        isScanning = false
+                        viewModel.onPlainScan(result)
                     }
                 )
             }
 
             // The signed message PSBT, with the full format/playback controls of the PSBT flow.
-            showSignedPsbtDisplay && signedQRResult != null -> {
+            uiState.showSignedPsbtDisplay && uiState.signedQRResult != null -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
                 ) {
                     SignedPSBTDisplay(
-                        signedQRResult = signedQRResult!!,
-                        currentFrame = currentDisplayFrame,
-                        selectedFormat = selectedOutputFormat,
-                        isPaused = isQRPaused,
-                        isLoading = isRegeneratingQR,
+                        signedQRResult = uiState.signedQRResult!!,
+                        currentFrame = uiState.currentDisplayFrame,
+                        selectedFormat = uiState.selectedOutputFormat,
+                        isPaused = uiState.isQRPaused,
+                        isLoading = uiState.isRegeneratingQR,
                         title = "Message Signed",
                         scanAnotherLabel = "Scan Another Message PSBT",
-                        onPauseToggle = { isQRPaused = it },
-                        onPreviousFrame = {
-                            val totalFrames = signedQRResult!!.frames.size
-                            currentDisplayFrame = (currentDisplayFrame - 1 + totalFrames) % totalFrames
-                        },
-                        onNextFrame = {
-                            val totalFrames = signedQRResult!!.frames.size
-                            currentDisplayFrame = (currentDisplayFrame + 1) % totalFrames
-                        },
-                        onFormatChange = { newFormat ->
-                            selectedOutputFormat = newFormat
-                            regenerateSignedQr()
-                        },
+                        onPauseToggle = { viewModel.setQRPaused(it) },
+                        onPreviousFrame = { viewModel.previousDisplayFrame() },
+                        onNextFrame = { viewModel.advanceDisplayFrame() },
+                        onFormatChange = { viewModel.setOutputFormat(it) },
                         onScanAnother = {
-                            showSignedPsbtDisplay = false
-                            signedMessagePsbt = null
-                            signedQRResult = null
-                            clearAll()
+                            viewModel.prepareScanAnother()
                             permissionLauncher.launch(Manifest.permission.CAMERA)
                         },
-                        onDone = { showSignedPsbtDisplay = false }
+                        onDone = { viewModel.setShowSignedPsbtDisplay(false) }
                     )
                 }
             }
@@ -500,7 +274,7 @@ fun SignMessageScreen(
                         )
                     ) {
                         Text(
-                            text = if (isSilentPayment) {
+                            text = if (uiState.isSilentPayment) {
                                 "Verify signatures, or sign messages for your silent payment addresses by " +
                                 "scanning the message-signing QR from the watching wallet."
                             } else {
@@ -525,17 +299,17 @@ fun SignMessageScreen(
                         )
                         SegmentedToggle(
                             options = formats.map { it.displayName },
-                            selectedIndex = formats.indexOf(signatureFormat),
-                            onSelect = { signatureFormat = formats[it] },
+                            selectedIndex = formats.indexOf(uiState.signatureFormat),
+                            onSelect = { viewModel.setSignatureFormat(formats[it]) },
                             compact = true,
                             itemEnabled = { index ->
-                                !isSilentPayment || formats[index] == MessageSigning.SignatureFormat.BIP322
+                                !uiState.isSilentPayment || formats[index] == MessageSigning.SignatureFormat.BIP322
                             }
                         )
                     }
 
                     // A staged message-signing request awaiting the user's consent to sign
-                    if (pendingMessagePsbt != null) {
+                    if (uiState.pendingMessagePsbt != null) {
                         Card(
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.tertiaryContainer
@@ -553,23 +327,19 @@ fun SignMessageScreen(
 
                     // Address Input with QR Scanner
                     SecureOutlinedTextField(
-                        value = addressInput,
-                        onValueChange = {
-                            addressInput = it
-                            pendingMessagePsbt = null
-                            clearStatus()
-                        },
+                        value = uiState.addressInput,
+                        onValueChange = { viewModel.setAddressInput(it) },
                         label = { Text("Bitcoin Address") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        enabled = !isProcessing,
+                        enabled = !uiState.isProcessing,
                         trailingIcon = {
                             IconButton(
                                 onClick = {
-                                    scanTarget = ScanTarget.ADDRESS
+                                    viewModel.prepareScan(SignMessageViewModel.ScanTarget.ADDRESS)
                                     permissionLauncher.launch(Manifest.permission.CAMERA)
                                 },
-                                enabled = !isProcessing
+                                enabled = !uiState.isProcessing
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.ic_qr_code_scanner),
@@ -581,39 +351,32 @@ fun SignMessageScreen(
 
                     // Message Input (larger)
                     SecureOutlinedTextField(
-                        value = messageInput,
-                        onValueChange = {
-                            messageInput = it
-                            pendingMessagePsbt = null
-                            clearStatus()
-                        },
+                        value = uiState.messageInput,
+                        onValueChange = { viewModel.setMessageInput(it) },
                         label = { Text("Message") },
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 120.dp),
                         minLines = 4,
                         maxLines = 10,
-                        enabled = !isProcessing
+                        enabled = !uiState.isProcessing
                     )
 
                     // Signature Input
                     SecureOutlinedTextField(
-                        value = signatureInput,
-                        onValueChange = {
-                            signatureInput = it
-                            clearStatus()
-                        },
+                        value = uiState.signatureInput,
+                        onValueChange = { viewModel.setSignatureInput(it) },
                         label = { Text("Signature") },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         maxLines = 4,
-                        enabled = !isProcessing,
+                        enabled = !uiState.isProcessing,
                         trailingIcon = {
-                            if (signatureInput.isNotBlank()) {
+                            if (uiState.signatureInput.isNotBlank()) {
                                 IconButton(
                                     onClick = {
                                         scope.launch {
-                                            val clipData = ClipData.newPlainText("signature", signatureInput)
+                                            val clipData = ClipData.newPlainText("signature", uiState.signatureInput)
                                             clipboard.setClipEntry(clipData.toClipEntry())
                                         }
                                     }
@@ -630,61 +393,54 @@ fun SignMessageScreen(
                     IconTextButton(
                         text = "Sign by QR",
                         iconRes = R.drawable.ic_qr_code_scanner,
-                        enabled = !isProcessing,
+                        enabled = !uiState.isProcessing,
                         onClick = {
-                            scanTarget = ScanTarget.MESSAGE
+                            viewModel.prepareScan(SignMessageViewModel.ScanTarget.MESSAGE)
                             permissionLauncher.launch(Manifest.permission.CAMERA)
                         }
                     )
 
-                    if (signatureInput.isNotBlank()) {
+                    if (uiState.signatureInput.isNotBlank()) {
                         IconTextButton(
                             text = "Show Signature QR",
                             iconRes = R.drawable.ic_qr_code_2,
-                            enabled = !isProcessing,
-                            onClick = {
-                                scope.launch {
-                                    signatureQRBitmap = withContext(Dispatchers.Default) {
-                                        QRCodeUtils.generateQRCode(signatureInput)
-                                    }
-                                    showSignatureQR = true
-                                }
-                            }
+                            enabled = !uiState.isProcessing,
+                            onClick = { viewModel.showSignatureQr() }
                         )
                     }
 
                     // After signing a scanned message PSBT, the watching wallet needs the PSBT back.
-                    if (signedQRResult != null) {
+                    if (uiState.signedQRResult != null) {
                         IconTextButton(
                             text = "Show Signed PSBT QR",
                             iconRes = R.drawable.ic_qr_code_2,
-                            enabled = !isProcessing,
-                            onClick = { showSignedPsbtDisplay = true }
+                            enabled = !uiState.isProcessing,
+                            onClick = { viewModel.setShowSignedPsbtDisplay(true) }
                         )
                     }
 
-                    if (errorMessage.isNotEmpty()) {
+                    if (uiState.errorMessage.isNotEmpty()) {
                         Card(
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.errorContainer
                             )
                         ) {
                             Text(
-                                text = errorMessage,
+                                text = uiState.errorMessage,
                                 modifier = Modifier.padding(16.dp),
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
                         }
                     }
 
-                    if (successMessage.isNotEmpty()) {
+                    if (uiState.successMessage.isNotEmpty()) {
                         Card(
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer
                             )
                         ) {
                             Text(
-                                text = successMessage,
+                                text = uiState.successMessage,
                                 modifier = Modifier.padding(16.dp),
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -695,26 +451,28 @@ fun SignMessageScreen(
 
                     // Sign/Verify Button
                     Button(
-                        onClick = ::signOrVerify,
+                        onClick = { viewModel.signOrVerify() },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = (canSign || canVerify) && !isProcessing
+                        enabled = (uiState.canSign || uiState.canVerify) && !uiState.isProcessing
                     ) {
-                        if (isProcessing) {
+                        if (uiState.isProcessing) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
-                            Text(if (canVerify) "Verify" else "Sign")
+                            Text(if (uiState.canVerify) "Verify" else "Sign")
                         }
                     }
 
                     // Clear button
-                    if (addressInput.isNotBlank() || messageInput.isNotBlank() || signatureInput.isNotBlank()) {
+                    if (uiState.addressInput.isNotBlank() || uiState.messageInput.isNotBlank() ||
+                        uiState.signatureInput.isNotBlank()
+                    ) {
                         OutlinedButton(
-                            onClick = ::clearAll,
+                            onClick = { viewModel.clearAll() },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !isProcessing
+                            enabled = !uiState.isProcessing
                         ) {
                             Text("Clear All")
                         }
@@ -796,4 +554,3 @@ private fun SignatureQrDialog(
         }
     }
 }
-

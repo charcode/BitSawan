@@ -140,6 +140,31 @@ fun CreateWalletScreen(
         }
     }
 
+    // Entropy explanation dialog, shown before the entropy step can be used
+    if (uiState.showEntropyInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissEntropyInfo() },
+            title = { Text("How Your Seed Is Generated") },
+            text = {
+                Text(
+                    text = androidx.compose.ui.text.buildAnnotatedString {
+                        append("Your seed phrase is generated from your device's cryptographically secure random number generator.\n\nOptionally, you can add your own randomness with coin tosses or dice rolls. Your input is combined with the device's randomness using SHA-256 — ")
+                        withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append("it is added on top of system entropy, never used alone")
+                        }
+                        append(", so it can only strengthen the result.\n\nSkipping this step is safe: your seed will still use full system entropy.")
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissEntropyInfo() }) {
+                    Text("Got It")
+                }
+            },
+            icon = { Icon(painter = painterResource(R.drawable.ic_info), contentDescription = null) }
+        )
+    }
+
     // Security warning dialog
     if (uiState.showWarningDialog) {
         AlertDialog(

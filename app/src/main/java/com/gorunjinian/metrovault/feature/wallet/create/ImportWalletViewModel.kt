@@ -137,16 +137,10 @@ class ImportWalletViewModel(application: Application) : AndroidViewModel(applica
      */
     fun setTestnetMode(enabled: Boolean) {
         _uiState.update { state ->
-            val currentPurpose = DerivationPaths.getPurpose(state.selectedDerivationPath)
-            val newPath = when (currentPurpose) {
-                86 -> if (enabled) DerivationPaths.TAPROOT_TESTNET else DerivationPaths.TAPROOT
-                84 -> if (enabled) DerivationPaths.NATIVE_SEGWIT_TESTNET else DerivationPaths.NATIVE_SEGWIT
-                49 -> if (enabled) DerivationPaths.NESTED_SEGWIT_TESTNET else DerivationPaths.NESTED_SEGWIT
-                44 -> if (enabled) DerivationPaths.LEGACY_TESTNET else DerivationPaths.LEGACY
-                352 -> if (enabled) DerivationPaths.SILENT_PAYMENT_TESTNET else DerivationPaths.SILENT_PAYMENT
-                else -> if (enabled) DerivationPaths.NATIVE_SEGWIT_TESTNET else DerivationPaths.NATIVE_SEGWIT
-            }
-            state.copy(isTestnet = enabled, selectedDerivationPath = newPath)
+            state.copy(
+                isTestnet = enabled,
+                selectedDerivationPath = DerivationPaths.forNetwork(state.selectedDerivationPath, enabled)
+            )
         }
     }
 
@@ -224,18 +218,12 @@ class ImportWalletViewModel(application: Application) : AndroidViewModel(applica
             return
         }
 
-        // Validate passphrase if enabled
-        if (state.useBip39Passphrase) {
-            if (state.bip39Passphrase.isEmpty()) {
-                _uiState.update {
-                    it.copy(errorMessage = "Please enter a BIP39 passphrase or turn off the toggle to continue without one")
-                }
-                return
-            }
-            if (state.bip39Passphrase != state.confirmBip39Passphrase) {
-                _uiState.update { it.copy(errorMessage = "BIP39 passphrases do not match") }
-                return
-            }
+        val passphraseError = validateBip39Passphrase(
+            state.useBip39Passphrase, state.bip39Passphrase, state.confirmBip39Passphrase
+        )
+        if (passphraseError != null) {
+            _uiState.update { it.copy(errorMessage = passphraseError) }
+            return
         }
 
         _uiState.update { it.copy(errorMessage = "", isImportingWallet = true) }

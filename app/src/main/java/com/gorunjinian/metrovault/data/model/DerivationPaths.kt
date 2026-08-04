@@ -164,6 +164,20 @@ object DerivationPaths {
     }
 
     /**
+     * Switch a base path between mainnet and testnet while preserving its purpose (address type).
+     * Used by the create/import wizards' testnet toggle; account selection is applied separately
+     * via [withAccountNumber].
+     */
+    fun forNetwork(basePath: String, testnet: Boolean): String = when (getPurpose(basePath)) {
+        86 -> if (testnet) TAPROOT_TESTNET else TAPROOT
+        84 -> if (testnet) NATIVE_SEGWIT_TESTNET else NATIVE_SEGWIT
+        49 -> if (testnet) NESTED_SEGWIT_TESTNET else NESTED_SEGWIT
+        44 -> if (testnet) LEGACY_TESTNET else LEGACY
+        352 -> if (testnet) SILENT_PAYMENT_TESTNET else SILENT_PAYMENT
+        else -> if (testnet) NATIVE_SEGWIT_TESTNET else NATIVE_SEGWIT
+    }
+
+    /**
      * Get the matching base path constant for a given [ScriptType] / network. Used by
      * `Wallet.changeScriptType` to rewrite a wallet's derivation path under a new BIP purpose
      * while preserving the active account and testnet selection.

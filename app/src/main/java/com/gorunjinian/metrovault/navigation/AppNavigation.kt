@@ -690,7 +690,6 @@ fun AppNavigation(
                 java.net.URLDecoder.decode(it, "UTF-8")
             }
             SignMessageScreen(
-                wallet = wallet,
                 onBack = {
                     if (!navController.popBackStack()) {
                         navController.navigate(Screen.Home.route)
@@ -799,7 +798,6 @@ fun AppNavigation(
 
         composable(Screen.ImportStateless.route) {
             ImportStatelessScreen(
-                wallet = wallet,
                 onBack = { navController.navigateUp() },
                 onWalletCreated = {
                     // Navigate to unified WalletDetailsScreen for stateless wallets

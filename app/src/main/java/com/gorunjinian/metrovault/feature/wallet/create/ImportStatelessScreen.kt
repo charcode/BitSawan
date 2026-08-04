@@ -25,148 +25,63 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gorunjinian.metrovault.data.model.DerivationPaths
-import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.qr.SeedQRUtils
 import com.gorunjinian.metrovault.core.ui.components.SecureOutlinedTextField
 import com.gorunjinian.metrovault.core.qr.configureForQRScanning
 import com.journeyapps.barcodescanner.CompoundBarcodeView
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Import screen for stateless wallets via SeedQR.
  * Flow: Step 1 (Configuration) → Step 2 (QR Scan) → Step 3 (Passphrase) → WalletDetailsScreen
  * Does not persist anything - wallet exists only in memory.
  */
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportStatelessScreen(
-    wallet: Wallet,
+    viewModel: ImportStatelessViewModel = viewModel(),
     onBack: () -> Unit,
     onWalletCreated: () -> Unit
 ) {
-    // Current step: 1 = Configuration, 2 = Scan, 3 = Passphrase
-    var currentStep by remember { mutableIntStateOf(1) }
-    
-    // Step 1: Configuration state
-    var selectedDerivationPath by remember { mutableStateOf(DerivationPaths.NATIVE_SEGWIT) }
-    var accountNumber by remember { mutableIntStateOf(0) }
-    var isTestnet by remember { mutableStateOf(false) }
-    
-    // Step 2: Scan state
-    var scannedMnemonic by remember { mutableStateOf<List<String>?>(null) }
-    var scanError by remember { mutableStateOf("") }
-    
-    // Step 3: Passphrase state
-    var passphrase by remember { mutableStateOf("") }
-    var confirmPassphrase by remember { mutableStateOf("") }
-    var usePassphrase by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-    var isCreating by remember { mutableStateOf(false) }
-    var realtimeFingerprint by remember { mutableStateOf("") }
-    
-    // Coroutine scope for background operations
-    val scope = rememberCoroutineScope()
-    
-    // Build full derivation path with account number
-    val fullDerivationPath = remember(selectedDerivationPath, accountNumber) {
-        DerivationPaths.withAccountNumber(selectedDerivationPath, accountNumber)
-    }
-    
-    // Security: Wipe scanned mnemonic from memory when leaving this screen
-    // This ensures seed words don't stay in RAM if user backs out without completing import
-    androidx.compose.runtime.DisposableEffect(Unit) {
-        onDispose {
-            // Clear all sensitive data when composable is disposed
-            scannedMnemonic = null
-            passphrase = ""
-            confirmPassphrase = ""
-        }
-    }
-    
-    // Calculate fingerprint when mnemonic or passphrase changes (Step 3)
-    LaunchedEffect(scannedMnemonic, passphrase, usePassphrase, fullDerivationPath) {
-        val mnemonic = scannedMnemonic ?: return@LaunchedEffect
-        val pass = if (usePassphrase) passphrase else ""
-        
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                // Use computeFingerprintOnly to avoid race conditions with createStatelessWallet
-                val fingerprint = wallet.computeFingerprintOnly(mnemonic, pass, fullDerivationPath)
-                realtimeFingerprint = fingerprint?.uppercase() ?: ""
-            } catch (_: Exception) {
-                realtimeFingerprint = ""
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Handle events
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is ImportStatelessViewModel.ImportStatelessEvent.WalletCreated -> onWalletCreated()
+                is ImportStatelessViewModel.ImportStatelessEvent.NavigateBack -> onBack()
             }
         }
     }
-    
-    // Create wallet function - runs crypto on background thread to avoid UI jank
-    fun createWallet() {
-        val mnemonic = scannedMnemonic ?: return
-        if (usePassphrase && passphrase != confirmPassphrase) {
-            errorMessage = "Passphrases do not match"
-            return
-        }
-        
-        isCreating = true
-        val pass = if (usePassphrase) passphrase else ""
-        
-        scope.launch {
-            val state = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                wallet.createStatelessWallet(mnemonic, pass, fullDerivationPath)
-            }
-            if (state != null) {
-                onWalletCreated()
-            } else {
-                errorMessage = "Failed to create wallet"
-                isCreating = false
-            }
-        }
-    }
-    
-    // Handle back navigation based on step
-    fun handleBack() {
-        when (currentStep) {
-            1 -> {
-                // Clear any lingering sensitive data before leaving
-                scannedMnemonic = null
-                passphrase = ""
-                confirmPassphrase = ""
-                onBack()
-            }
-            2 -> {
-                currentStep = 1
-                scanError = ""
-                // Clear mnemonic if user scanned but wants to go back to configuration
-                scannedMnemonic = null
-            }
-            3 -> {
-                currentStep = 2
-                scannedMnemonic = null
-                passphrase = ""
-                confirmPassphrase = ""
-                usePassphrase = false
-                errorMessage = ""
-            }
-        }
+
+    // Calculate fingerprint in real-time when mnemonic or passphrase changes (Step 3)
+    LaunchedEffect(
+        uiState.scannedMnemonic, uiState.passphrase, uiState.usePassphrase,
+        uiState.selectedDerivationPath, uiState.accountNumber
+    ) {
+        delay(150.milliseconds)  // Debounce
+        viewModel.updateRealtimeFingerprint()
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
-                        when (currentStep) {
+                        when (uiState.currentStep) {
                             1 -> "Stateless Import"
                             2 -> "Scan SeedQR"
                             3 -> "Passphrase (Optional)"
                             else -> "Stateless Import"
                         }
-                    ) 
+                    )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { handleBack() }) {
+                    IconButton(onClick = { viewModel.goToPreviousStep() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -176,51 +91,38 @@ fun ImportStatelessScreen(
             )
         }
     ) { padding ->
-        when (currentStep) {
+        when (uiState.currentStep) {
             1 -> Step1Configuration(
                 modifier = Modifier.padding(padding),
-                selectedDerivationPath = selectedDerivationPath,
-                accountNumber = accountNumber,
-                isTestnet = isTestnet,
-                onDerivationPathChange = { selectedDerivationPath = it },
-                onAccountNumberChange = { accountNumber = it },
-                onTestnetChange = { newIsTestnet ->
-                    isTestnet = newIsTestnet
-                    val purpose = DerivationPaths.getPurpose(selectedDerivationPath)
-                    selectedDerivationPath = when (purpose) {
-                        86 -> if (newIsTestnet) DerivationPaths.TAPROOT_TESTNET else DerivationPaths.TAPROOT
-                        84 -> if (newIsTestnet) DerivationPaths.NATIVE_SEGWIT_TESTNET else DerivationPaths.NATIVE_SEGWIT
-                        49 -> if (newIsTestnet) DerivationPaths.NESTED_SEGWIT_TESTNET else DerivationPaths.NESTED_SEGWIT
-                        44 -> if (newIsTestnet) DerivationPaths.LEGACY_TESTNET else DerivationPaths.LEGACY
-                        else -> if (newIsTestnet) DerivationPaths.NATIVE_SEGWIT_TESTNET else DerivationPaths.NATIVE_SEGWIT
-                    }
-                },
-                onNext = { currentStep = 2 }
+                selectedDerivationPath = uiState.selectedDerivationPath,
+                accountNumber = uiState.accountNumber,
+                isTestnet = uiState.isTestnet,
+                onDerivationPathChange = { viewModel.setDerivationPath(it) },
+                onAccountNumberChange = { viewModel.setAccountNumber(it) },
+                onTestnetChange = { viewModel.setTestnetMode(it) },
+                onNext = { viewModel.goToNextStep() }
             )
-            
+
             2 -> Step2ScanSeedQR(
                 modifier = Modifier.padding(padding),
-                errorMessage = scanError,
-                onMnemonicScanned = { mnemonic ->
-                    scannedMnemonic = mnemonic
-                    currentStep = 3
-                },
-                onError = { scanError = it }
+                errorMessage = uiState.scanError,
+                onMnemonicScanned = { viewModel.onMnemonicScanned(it) },
+                onError = { viewModel.setScanError(it) }
             )
-            
+
             3 -> Step3Passphrase(
                 modifier = Modifier.padding(padding),
-                wordCount = scannedMnemonic?.size ?: 0,
-                fingerprint = realtimeFingerprint,
-                usePassphrase = usePassphrase,
-                passphrase = passphrase,
-                confirmPassphrase = confirmPassphrase,
-                errorMessage = errorMessage,
-                isCreating = isCreating,
-                onUsePassphraseChange = { usePassphrase = it },
-                onPassphraseChange = { passphrase = it },
-                onConfirmPassphraseChange = { confirmPassphrase = it },
-                onImport = { createWallet() }
+                wordCount = uiState.scannedMnemonic?.size ?: 0,
+                fingerprint = uiState.realtimeFingerprint,
+                usePassphrase = uiState.usePassphrase,
+                passphrase = uiState.passphrase,
+                confirmPassphrase = uiState.confirmPassphrase,
+                errorMessage = uiState.errorMessage,
+                isCreating = uiState.isCreating,
+                onUsePassphraseChange = { viewModel.setUsePassphrase(it) },
+                onPassphraseChange = { viewModel.setPassphrase(it) },
+                onConfirmPassphraseChange = { viewModel.setConfirmPassphrase(it) },
+                onImport = { viewModel.createWallet() }
             )
         }
     }
