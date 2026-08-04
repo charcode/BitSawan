@@ -1,18 +1,13 @@
 package com.gorunjinian.metrovault.feature.wallet.create
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -24,6 +19,7 @@ import com.gorunjinian.metrovault.lib.bitcoin.MnemonicCode
 import com.gorunjinian.metrovault.lib.bitcoin.BIP39Wordlist
 import com.gorunjinian.metrovault.core.ui.components.MnemonicInputField
 import com.gorunjinian.metrovault.core.ui.components.SecureMnemonicKeyboard
+import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,68 +87,23 @@ fun CompleteMnemonicScreen(
                 }
                 
                 // Word count selector
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            MaterialTheme.colorScheme.surfaceVariant,
-                            RoundedCornerShape(8.dp)
-                        )
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // 11 Words option
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (expectedWordCount == 11) MaterialTheme.colorScheme.primary
-                                else Color.Transparent
-                            )
-                            .clickable { 
-                                expectedWordCount = 11
-                                if (mnemonicWords.size > 11) {
-                                    mnemonicWords = mnemonicWords.take(11)
-                                }
-                                possibleWords = emptyList()
-                            }
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "11 words",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (expectedWordCount == 11) MaterialTheme.colorScheme.onPrimary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    
-                    // 23 Words option
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                if (expectedWordCount == 23) MaterialTheme.colorScheme.primary
-                                else Color.Transparent
-                            )
-                            .clickable { 
-                                expectedWordCount = 23
-                                possibleWords = emptyList()
-                            }
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "23 words",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = if (expectedWordCount == 23) MaterialTheme.colorScheme.onPrimary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                SegmentedToggle(
+                    firstOption = "11 words",
+                    secondOption = "23 words",
+                    isSecondSelected = expectedWordCount == 23,
+                    onSelectFirst = {
+                        expectedWordCount = 11
+                        if (mnemonicWords.size > 11) {
+                            mnemonicWords = mnemonicWords.take(11)
+                        }
+                        possibleWords = emptyList()
+                    },
+                    onSelectSecond = {
+                        expectedWordCount = 23
+                        possibleWords = emptyList()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 // Mnemonic input field with chips
                 MnemonicInputField(

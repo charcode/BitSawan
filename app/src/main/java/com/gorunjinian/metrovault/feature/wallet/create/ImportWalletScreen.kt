@@ -3,13 +3,8 @@ package com.gorunjinian.metrovault.feature.wallet.create
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,18 +12,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -39,11 +25,9 @@ import com.gorunjinian.metrovault.lib.bitcoin.MnemonicCode
 import com.gorunjinian.metrovault.core.qr.SeedQRUtils
 import com.gorunjinian.metrovault.core.ui.components.MnemonicInputField
 import com.gorunjinian.metrovault.core.ui.components.SecureMnemonicKeyboard
-import com.gorunjinian.metrovault.core.ui.components.SecureOutlinedTextField
 import com.gorunjinian.metrovault.core.qr.configureForQRScanning
 import com.journeyapps.barcodescanner.CompoundBarcodeView
 import kotlinx.coroutines.delay
-import com.gorunjinian.metrovault.data.model.DerivationPaths
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,10 +38,6 @@ fun ImportWalletScreen(
     onWalletImported: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
-    // Focus requester for BIP39 passphrase confirmation field
-    val confirmPassphraseFocusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
 
     // Handle events
     LaunchedEffect(Unit) {
@@ -68,7 +48,7 @@ fun ImportWalletScreen(
             }
         }
     }
-    
+
     // Calculate fingerprint in real-time when passphrase or mnemonic changes
     LaunchedEffect(uiState.mnemonicWords, uiState.bip39Passphrase, uiState.useBip39Passphrase) {
         delay(150.milliseconds)  // Debounce
@@ -93,18 +73,20 @@ fun ImportWalletScreen(
                 .padding(padding)
         ) {
             when (uiState.currentStep) {
-                1 -> Step1Configuration(
-                    expectedWordCount = uiState.expectedWordCount,
+                1 -> WalletConfigurationStep(
+                    title = "Seed Phrase Length",
                     selectedDerivationPath = uiState.selectedDerivationPath,
                     accountNumber = uiState.accountNumber,
                     isTestnet = uiState.isTestnet,
-                    onWordCountChange = { viewModel.setWordCount(it) },
+                    includeSilentPayments = true,
                     onDerivationPathChange = { viewModel.setDerivationPath(it) },
                     onAccountNumberChange = { viewModel.setAccountNumber(it) },
                     onTestnetChange = { viewModel.setTestnetMode(it) },
-                    onNext = { viewModel.goToNextStep() }
+                    onNext = { viewModel.goToNextStep() },
+                    wordCount = uiState.expectedWordCount,
+                    onWordCountChange = { viewModel.setWordCount(it) }
                 )
-                
+
                 2 -> Step2SeedPhrase(
                     mnemonicWords = uiState.mnemonicWords,
                     currentWord = uiState.currentWord,
@@ -120,295 +102,25 @@ fun ImportWalletScreen(
                     onAddWord = { viewModel.addWord(it) },
                     onNext = { viewModel.goToNextStep() }
                 )
-                
-                3 -> Step3Passphrase(
+
+                3 -> Bip39PassphraseStep(
+                    infoPrimaryText = "If your seed phrase has a BIP39 passphrase (25th word), enable it here",
+                    infoSecondaryText = "The passphrase is shown in plain text to avoid typos",
                     useBip39Passphrase = uiState.useBip39Passphrase,
                     bip39Passphrase = uiState.bip39Passphrase,
                     confirmBip39Passphrase = uiState.confirmBip39Passphrase,
-                    savePassphraseLocally = uiState.savePassphraseLocally,
                     realtimeFingerprint = uiState.realtimeFingerprint,
                     errorMessage = uiState.errorMessage,
-                    isImportingWallet = uiState.isImportingWallet,
-                    confirmPassphraseFocusRequester = confirmPassphraseFocusRequester,
-                    keyboardController = keyboardController,
+                    isSubmitting = uiState.isImportingWallet,
+                    submitLabel = if (uiState.useBip39Passphrase) "Import Wallet with Passphrase" else "Import Wallet",
+                    savePassphraseLocally = uiState.savePassphraseLocally,
                     onUsePassphraseChange = { viewModel.setUseBip39Passphrase(it) },
                     onPassphraseChange = { viewModel.setBip39Passphrase(it) },
                     onConfirmPassphraseChange = { viewModel.setConfirmBip39Passphrase(it) },
                     onSavePassphraseLocallyChange = { viewModel.setSavePassphraseLocally(it) },
-                    onImportWallet = { viewModel.importWallet() }
+                    onSubmit = { viewModel.importWallet() }
                 )
             }
-        }
-    }
-}
-
-
-// ========== Step 1: Configuration ==========
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun Step1Configuration(
-    expectedWordCount: Int,
-    selectedDerivationPath: String,
-    accountNumber: Int,
-    isTestnet: Boolean,
-    onWordCountChange: (Int) -> Unit,
-    onDerivationPathChange: (String) -> Unit,
-    onAccountNumberChange: (Int) -> Unit,
-    onTestnetChange: (Boolean) -> Unit,
-    onNext: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-        // Title row with testnet toggle
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Seed Phrase Length",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Testnet",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isTestnet) MaterialTheme.colorScheme.primary 
-                           else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Switch(
-                    checked = isTestnet,
-                    onCheckedChange = onTestnetChange
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.surfaceVariant,
-                    RoundedCornerShape(8.dp)
-                )
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 12 Words option
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(
-                        if (expectedWordCount == 12) MaterialTheme.colorScheme.primary
-                        else Color.Transparent
-                    )
-                    .clickable { onWordCountChange(12) }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "12 Words",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (expectedWordCount == 12) MaterialTheme.colorScheme.onPrimary
-                           else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            // 24 Words option
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(
-                        if (expectedWordCount == 24) MaterialTheme.colorScheme.primary
-                        else Color.Transparent
-                    )
-                    .clickable { onWordCountChange(24) }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "24 Words",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (expectedWordCount == 24) MaterialTheme.colorScheme.onPrimary
-                           else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-    Text(
-        text = "Address Type",
-        style = MaterialTheme.typography.titleMedium
-    )
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Select the Bitcoin address type for this wallet.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Address type dropdown
-            var addressTypeExpanded by remember { mutableStateOf(false) }
-            
-            // Dynamic options based on testnet mode
-            val options = if (isTestnet) {
-                listOf(
-                    Triple("Taproot", "tb1p...", DerivationPaths.TAPROOT_TESTNET),
-                    Triple("Native SegWit", "tb1q...", DerivationPaths.NATIVE_SEGWIT_TESTNET),
-                    Triple("Nested SegWit", "2...", DerivationPaths.NESTED_SEGWIT_TESTNET),
-                    Triple("Legacy", "m/n...", DerivationPaths.LEGACY_TESTNET),
-                    Triple("Silent Payments", "tsp1q...", DerivationPaths.SILENT_PAYMENT_TESTNET)
-                )
-            } else {
-                listOf(
-                    Triple("Taproot", "bc1p...", DerivationPaths.TAPROOT),
-                    Triple("Native SegWit", "bc1q...", DerivationPaths.NATIVE_SEGWIT),
-                    Triple("Nested SegWit", "3...", DerivationPaths.NESTED_SEGWIT),
-                    Triple("Legacy", "1...", DerivationPaths.LEGACY),
-                    Triple("Silent Payments", "sp1q...", DerivationPaths.SILENT_PAYMENT)
-                )
-            }
-            
-            val currentPurpose = DerivationPaths.getPurpose(selectedDerivationPath)
-            val selectedOption = options.find { DerivationPaths.getPurpose(it.third) == currentPurpose } ?: options[1]
-            val isDefaultAddressType = currentPurpose == 84 // Native SegWit is the default
-            
-            ExposedDropdownMenuBox(
-                expanded = addressTypeExpanded,
-                onExpandedChange = { addressTypeExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = selectedOption.first,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Address Type") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = addressTypeExpanded) },
-                    suffix = if (isDefaultAddressType) {
-                        {
-                            Surface(
-                                color = MaterialTheme.colorScheme.tertiaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    text = "Default",
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    } else null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                )
-                ExposedDropdownMenu(
-                    expanded = addressTypeExpanded,
-                    onDismissRequest = { addressTypeExpanded = false }
-                ) {
-                    options.forEachIndexed { index, (label, example, path) ->
-                        DropdownMenuItem(
-                            text = {
-                                Column(
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = label,
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-                                    Text(
-                                        text = "Example: $example",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            },
-                            onClick = {
-                                onDerivationPathChange(path)
-                                addressTypeExpanded = false
-                            },
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
-                        )
-                        if (index != options.lastIndex) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Account Number
-        Text(
-            text = "Account Number (Advanced)",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "BIP44 account index in derivation path. Default is 0.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = accountNumber.toString(),
-                    onValueChange = { value ->
-                        val num = value.filter { it.isDigit() }.take(2).toIntOrNull() ?: 0
-                        onAccountNumberChange(num)
-                    },
-                    label = { Text("Account Number") },
-                    placeholder = { Text("0") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-            }
-        }
-
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onNext,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Next")
         }
     }
 }
@@ -431,12 +143,12 @@ private fun Step2SeedPhrase(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     var validationError by remember { mutableStateOf("") }
-    
+
     // SeedQR Scanner state
     var isScanning by remember { mutableStateOf(false) }
     var hasCameraPermission by remember { mutableStateOf(false) }
     var barcodeView: CompoundBarcodeView? by remember { mutableStateOf(null) }
-    
+
     // Camera permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -446,7 +158,7 @@ private fun Step2SeedPhrase(
             isScanning = true
         }
     }
-    
+
     // Lifecycle observer for scanner
     DisposableEffect(lifecycleOwner, isScanning) {
         val observer = LifecycleEventObserver { _, event ->
@@ -469,7 +181,7 @@ private fun Step2SeedPhrase(
             try { barcodeView?.pause() } catch (_: Exception) { }
         }
     }
-    
+
     // Resume camera when isScanning becomes true and view is ready
     // This is needed because the lifecycle observer only responds to transitions,
     // not the current state (we're already ON_RESUME when scanning starts)
@@ -478,7 +190,7 @@ private fun Step2SeedPhrase(
             try { barcodeView?.resume() } catch (_: Exception) { }
         }
     }
-    
+
     // Pause scanner when isScanning becomes false
     LaunchedEffect(isScanning) {
         if (!isScanning) {
@@ -508,10 +220,10 @@ private fun Step2SeedPhrase(
                     text = "Enter Seed Phrase",
                     style = MaterialTheme.typography.headlineSmall
                 )
-                
+
                 // Keyboard visibility toggle
                 FilledTonalIconButton(
-                    onClick = { 
+                    onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onKeyboardVisibilityChange(!isKeyboardVisible)
                     }
@@ -536,7 +248,7 @@ private fun Step2SeedPhrase(
                     onCurrentWordChange("")
                 }
             )
-            
+
             // QR Scanner view (when scanning)
             if (isScanning) {
                 Card(
@@ -555,10 +267,10 @@ private fun Step2SeedPhrase(
                                         result.text?.let { scannedText ->
                                             // Get raw bytes for CompactSeedQR (binary data gets corrupted in text)
                                             val rawBytes = result.rawBytes
-                                            
+
                                             // Try to decode as SeedQR (passing raw bytes for CompactSeedQR)
                                             val decodedWords = SeedQRUtils.decodeSeedQR(scannedText, rawBytes, ctx)
-                                            
+
                                             if (decodedWords != null) {
                                                 // Check word count matches expected
                                                 if (decodedWords.size != expectedWordCount) {
@@ -580,7 +292,7 @@ private fun Step2SeedPhrase(
                             },
                             modifier = Modifier.fillMaxSize()
                         )
-                        
+
                         // Cancel button overlay
                         Button(
                             onClick = {
@@ -620,7 +332,7 @@ private fun Step2SeedPhrase(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            
+
             // Scan SeedQR button
             OutlinedButton(
                 onClick = {
@@ -638,7 +350,7 @@ private fun Step2SeedPhrase(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Scan SeedQR")
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
 
             Button(
@@ -684,211 +396,6 @@ private fun Step2SeedPhrase(
                     onCurrentWordChange("")
                 }
             )
-        }
-    }
-}
-
-// ========== Step 3: Passphrase and Import ==========
-
-@Composable
-private fun Step3Passphrase(
-    useBip39Passphrase: Boolean,
-    bip39Passphrase: String,
-    confirmBip39Passphrase: String,
-    savePassphraseLocally: Boolean,
-    realtimeFingerprint: String,
-    errorMessage: String,
-    isImportingWallet: Boolean,
-    confirmPassphraseFocusRequester: FocusRequester,
-    keyboardController: androidx.compose.ui.platform.SoftwareKeyboardController?,
-    onUsePassphraseChange: (Boolean) -> Unit,
-    onPassphraseChange: (String) -> Unit,
-    onConfirmPassphraseChange: (String) -> Unit,
-    onSavePassphraseLocallyChange: (Boolean) -> Unit,
-    onImportWallet: () -> Unit
-) {
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-        Text(
-            text = "BIP39 Passphrase (Optional)",
-            style = MaterialTheme.typography.headlineSmall
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "If your seed phrase has a BIP39 passphrase (25th word), enable it here",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "The passphrase is shown in plain text to avoid typos",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Switch(
-                checked = useBip39Passphrase,
-                onCheckedChange = onUsePassphraseChange
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Use BIP39 passphrase")
-        }
-
-        if (useBip39Passphrase) {
-            SecureOutlinedTextField(
-                value = bip39Passphrase,
-                onValueChange = onPassphraseChange,
-                label = { Text("BIP39 Passphrase (visible)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isPasswordField = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(
-                    onNext = { confirmPassphraseFocusRequester.requestFocus() }
-                )
-            )
-
-            SecureOutlinedTextField(
-                value = confirmBip39Passphrase,
-                onValueChange = onConfirmPassphraseChange,
-                label = { Text("Confirm BIP39 Passphrase") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(confirmPassphraseFocusRequester),
-                singleLine = true,
-                isPasswordField = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = { keyboardController?.hide() }
-                )
-            )
-
-            // Real-time fingerprint preview
-            if (realtimeFingerprint.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Master Fingerprint: ",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            text = realtimeFingerprint,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            // "Don't save passphrase" toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Switch(
-                    checked = !savePassphraseLocally,
-                    onCheckedChange = { onSavePassphraseLocallyChange(!it) }
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Don't save passphrase on device",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            // Warning when "don't save" is enabled
-            if (!savePassphraseLocally) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "You will need to re-enter this passphrase every time you open this wallet.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "If you enter a different passphrase later, the Master Fingerprint will be displayed in red to indicate it does not match the original.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
-                        )
-                    }
-                }
-            }
-        }
-
-        if (errorMessage.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Text(
-                    text = errorMessage,
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
-        }
-
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = { onImportWallet() },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isImportingWallet
-        ) {
-            if (isImportingWallet) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Text(if (useBip39Passphrase) "Import Wallet with Passphrase" else "Import Wallet")
-            }
         }
     }
 }

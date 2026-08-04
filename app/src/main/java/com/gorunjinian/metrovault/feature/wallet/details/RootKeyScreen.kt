@@ -1,9 +1,5 @@
 package com.gorunjinian.metrovault.feature.wallet.details
 
-import android.graphics.Bitmap
-import android.widget.Toast
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,17 +7,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.gorunjinian.metrovault.core.util.SecurityUtils
+import com.gorunjinian.metrovault.core.ui.components.TapToCopyQRCard
 import com.gorunjinian.metrovault.domain.Wallet
-import com.gorunjinian.metrovault.core.qr.QRCodeUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 
 /**
@@ -36,34 +26,11 @@ fun RootKeyScreen(
     onBack: () -> Unit,
     onBackToExportOptions: () -> Unit
 ) {
-    val context = LocalContext.current
     val tapToCopyEnabled by userPreferencesRepository.tapToCopyEnabled.collectAsState()
-    
+
     // Get the BIP32 root key
     val rootKey = remember { wallet.getBIP32RootKey() }
-    
-    // QR code bitmap
-    var currentQR by remember { mutableStateOf<Bitmap?>(null) }
-    
-    // Security: Clear sensitive data when leaving the screen
-    DisposableEffect(Unit) {
-        onDispose {
-            currentQR?.recycle()
-            currentQR = null
-            System.gc() // Hint to garbage collector
-        }
-    }
-    
-    // Generate QR code
-    LaunchedEffect(rootKey) {
-        if (rootKey.isNotEmpty()) {
-            currentQR = null // Show loading
-            withContext(Dispatchers.IO) {
-                currentQR = QRCodeUtils.generateQRCode(rootKey)
-            }
-        }
-    }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -114,48 +81,12 @@ fun RootKeyScreen(
             }
 
             // QR Code
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-            ) {
-                if (currentQR != null) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (tapToCopyEnabled) {
-                                    Modifier.clickable {
-                                        SecurityUtils.copyToClipboardWithAutoClear(
-                                            context = context,
-                                            label = "BIP32 Root Key",
-                                            text = rootKey,
-                                            delayMs = 20_000
-                                        )
-                                        Toast.makeText(context, "Copied! Clipboard will clear in 20 seconds", Toast.LENGTH_SHORT).show()
-                                    }
-                                } else Modifier
-                            )
-                    ) {
-                        Image(
-                            bitmap = currentQR!!.asImageBitmap(),
-                            contentDescription = "BIP32 Root Key QR Code - Tap to copy",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                } else {
-                    CircularProgressIndicator()
-                }
-            }
-
-            if (tapToCopyEnabled) {
-                Text(
-                    text = "Tap QR code to copy",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            TapToCopyQRCard(
+                data = rootKey,
+                clipboardLabel = "BIP32 Root Key",
+                tapToCopyEnabled = tapToCopyEnabled,
+                contentDescription = "BIP32 Root Key QR Code - Tap to copy"
+            )
 
             // Key text display
             Card(

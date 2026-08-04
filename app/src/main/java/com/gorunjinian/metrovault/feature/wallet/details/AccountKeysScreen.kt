@@ -1,42 +1,28 @@
 package com.gorunjinian.metrovault.feature.wallet.details
 
-import android.graphics.Bitmap
-import android.widget.Toast
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.storage.SecureStorage
 import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
-import com.gorunjinian.metrovault.core.util.SecurityUtils
 import com.gorunjinian.metrovault.data.model.DerivationPaths
-import com.gorunjinian.metrovault.core.qr.QRCodeUtils
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
+import com.gorunjinian.metrovault.core.ui.components.TapToCopyQRCard
 
 /**
  * AccountKeysScreen - Displays extended public and private keys with QR codes.
  * Supports public/private toggle with password confirmation for private keys.
  * Includes account selector to export keys for any account.
  */
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountKeysScreen(
@@ -53,19 +39,6 @@ fun AccountKeysScreen(
     
     // BIP48 script type for multisig export
     var bip48ScriptType by remember { mutableStateOf(DerivationPaths.Bip48ScriptType.P2WSH) }
-    
-    // QR code bitmap
-    var currentQR by remember { mutableStateOf<Bitmap?>(null) }
-    
-    // Security: Clear sensitive data when leaving the screen
-    DisposableEffect(Unit) {
-        onDispose {
-            currentQR?.recycle()
-            currentQR = null
-            showPrivate = false
-            System.gc() // Hint to garbage collector
-        }
-    }
     
     // Password confirmation state
     var showPasswordDialog by remember { mutableStateOf(false) }
@@ -125,17 +98,6 @@ fun AccountKeysScreen(
     val selectedAccountName = activeWalletMetadata?.getAccountDisplayName(selectedAccountNumber)
         ?: "Account $selectedAccountNumber"
     
-    // Generate QR code when display data changes
-    LaunchedEffect(displayKey) {
-        if (displayKey.isNotEmpty()) {
-            currentQR = null // Show loading
-            withContext(Dispatchers.IO) {
-                currentQR = QRCodeUtils.generateQRCode(displayKey)
-            }
-        }
-    }
-    
-    val context = LocalContext.current
     val tapToCopyEnabled by userPreferencesRepository.tapToCopyEnabled.collectAsState()
     
     Scaffold(
@@ -252,12 +214,13 @@ fun AccountKeysScreen(
             }
 
             // Public/Private Toggle
-            PublicPrivateToggle(
-                showPrivate = showPrivate,
-                onSelectPublic = { showPrivate = false },
-                onSelectPrivate = {
-                    showPasswordDialog = true
-                }
+            SegmentedToggle(
+                firstOption = "Public",
+                secondOption = "Private",
+                isSecondSelected = showPrivate,
+                onSelectFirst = { showPrivate = false },
+                onSelectSecond = { showPasswordDialog = true },
+                modifier = Modifier.fillMaxWidth()
             )
 
             // Security warning for private key
@@ -296,48 +259,12 @@ fun AccountKeysScreen(
             }
 
             // QR Code
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-            ) {
-                if (currentQR != null) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (tapToCopyEnabled) {
-                            Modifier.clickable {
-                                        SecurityUtils.copyToClipboardWithAutoClear(
-                                            context = context,
-                                            label = exportLabel,
-                                            text = displayKey,
-                                            delayMs = 20_000
-                                        )
-                                        Toast.makeText(context, "Copied! Clipboard will clear in 20 seconds", Toast.LENGTH_SHORT).show()
-                                    }
-                                } else Modifier
-                            )
-                    ) {
-                        Image(
-                            bitmap = currentQR!!.asImageBitmap(),
-                            contentDescription = "$keyType Key QR Code - Tap to copy",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                } else {
-                    CircularProgressIndicator()
-                }
-            }
-
-            if (tapToCopyEnabled) {
-                Text(
-                    text = "Tap QR code to copy",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            TapToCopyQRCard(
+                data = displayKey,
+                clipboardLabel = exportLabel,
+                tapToCopyEnabled = tapToCopyEnabled,
+                contentDescription = "$keyType Key QR Code - Tap to copy"
+            )
 
             // Key text display
             Card(
@@ -372,68 +299,5 @@ fun AccountKeysScreen(
                 showPrivate = true
             }
         )
-    }
-}
-
-// ==================== Public/Private Toggle ====================
-
-@Composable
-internal fun PublicPrivateToggle(
-    showPrivate: Boolean,
-    onSelectPublic: () -> Unit,
-    onSelectPrivate: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(8.dp)
-            )
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Public option
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(6.dp))
-                .background(
-                    if (!showPrivate) MaterialTheme.colorScheme.primary
-                    else Color.Transparent
-                )
-                .clickable { onSelectPublic() }
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Public",
-                style = MaterialTheme.typography.labelLarge,
-                color = if (!showPrivate) MaterialTheme.colorScheme.onPrimary
-                       else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        
-        // Private option
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(6.dp))
-                .background(
-                    if (showPrivate) MaterialTheme.colorScheme.primary
-                    else Color.Transparent
-                )
-                .clickable { onSelectPrivate() }
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Private",
-                style = MaterialTheme.typography.labelLarge,
-                color = if (showPrivate) MaterialTheme.colorScheme.onPrimary
-                       else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }

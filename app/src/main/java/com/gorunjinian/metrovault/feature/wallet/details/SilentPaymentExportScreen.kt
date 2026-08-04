@@ -1,9 +1,5 @@
 package com.gorunjinian.metrovault.feature.wallet.details
 
-import android.graphics.Bitmap
-import android.widget.Toast
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,19 +7,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.gorunjinian.metrovault.core.qr.QRCodeUtils
 import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
-import com.gorunjinian.metrovault.core.util.SecurityUtils
+import com.gorunjinian.metrovault.core.ui.components.TapToCopyQRCard
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 import com.gorunjinian.metrovault.domain.Wallet
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * BIP-352 silent-payments export screen.
@@ -47,16 +37,6 @@ fun SilentPaymentExportScreen(
 ) {
     // false = scan key (spscan…), true = descriptor (sp(…)#…)
     var showDescriptor by remember { mutableStateOf(false) }
-
-    var currentQR by remember { mutableStateOf<Bitmap?>(null) }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            currentQR?.recycle()
-            currentQR = null
-            System.gc()
-        }
-    }
 
     val walletsList by wallet.wallets.collectAsState()
     val walletId = wallet.getActiveWalletId()
@@ -82,16 +62,6 @@ fun SilentPaymentExportScreen(
     val selectedAccountName = activeWalletMetadata?.getAccountDisplayName(selectedAccountNumber)
         ?: "Account $selectedAccountNumber"
 
-    LaunchedEffect(displayData) {
-        if (displayData.isNotEmpty()) {
-            currentQR = null
-            withContext(Dispatchers.IO) {
-                currentQR = QRCodeUtils.generateQRCode(displayData)
-            }
-        }
-    }
-
-    val context = LocalContext.current
     val tapToCopyEnabled by userPreferencesRepository.tapToCopyEnabled.collectAsState()
 
     Scaffold(
@@ -193,59 +163,19 @@ fun SilentPaymentExportScreen(
                 )
             }
 
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-            ) {
-                val qr = currentQR
-                if (qr != null && displayData.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (tapToCopyEnabled) {
-                                    Modifier.clickable {
-                                        SecurityUtils.copyToClipboardWithAutoClear(
-                                            context = context,
-                                            label = exportLabel,
-                                            text = displayData,
-                                            delayMs = 20_000
-                                        )
-                                        Toast.makeText(
-                                            context,
-                                            "Copied! Clipboard will clear in 20 seconds",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                } else Modifier
-                            )
-                    ) {
-                        Image(
-                            bitmap = qr.asImageBitmap(),
-                            contentDescription = "$exportLabel QR Code - Tap to copy",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                } else if (displayData.isEmpty()) {
+            TapToCopyQRCard(
+                data = displayData,
+                clipboardLabel = exportLabel,
+                tapToCopyEnabled = tapToCopyEnabled,
+                contentDescription = "$exportLabel QR Code - Tap to copy",
+                emptyContent = {
                     Text(
                         text = "Silent payments are not available for this wallet.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                } else {
-                    CircularProgressIndicator()
                 }
-            }
-
-            if (tapToCopyEnabled && displayData.isNotEmpty()) {
-                Text(
-                    text = "Tap QR code to copy",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            )
 
             if (displayData.isNotEmpty()) {
                 Card(modifier = Modifier.fillMaxWidth()) {
