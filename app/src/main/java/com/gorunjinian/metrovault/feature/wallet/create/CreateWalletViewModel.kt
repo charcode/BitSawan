@@ -54,7 +54,7 @@ class CreateWalletViewModel(application: Application) : AndroidViewModel(applica
         val useBip39Passphrase: Boolean = false,
         val bip39Passphrase: String = "",
         val confirmBip39Passphrase: String = "",
-        val savePassphraseLocally: Boolean = true,  // true = save to disk (default), false = session only
+        val savePassphraseLocally: Boolean = false, // true = save to disk, false = session only (default)
         val realtimeFingerprint: String = "",       // Calculated in real-time as passphrase is typed
 
         // Common
