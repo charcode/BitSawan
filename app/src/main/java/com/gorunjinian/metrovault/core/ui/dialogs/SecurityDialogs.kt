@@ -1,5 +1,3 @@
-@file:Suppress("AssignedValueIsNeverRead")
-
 package com.gorunjinian.metrovault.core.ui.dialogs
 
 import androidx.compose.foundation.clickable
@@ -17,7 +15,11 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.storage.SecureStorage
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ChangePasswordDialog(
@@ -280,8 +282,66 @@ fun BiometricSetupDialog(
 }
 
 /**
+ * Password confirmation for sensitive operations, with verification handled internally.
+ *
+ * Runs [SecureStorage.classifyPassword] on a background dispatcher (PBKDF2 at 600k
+ * iterations must never run on Main) while [ConfirmPasswordDialog]'s loading state is
+ * shown, and accepts only the current vault's password: a decoy session accepts only the
+ * decoy password, a main session only the main password.
+ *
+ * @param onVerified Called on Main after successful verification. The dialog stays on
+ *   screen — the caller decides whether to dismiss it or start follow-up work.
+ * @param isLoading Caller's post-verification work in progress (e.g. deleting wallets);
+ *   OR-ed with the internal verification spinner.
+ * @param errorMessage Caller's post-verification error to show in the dialog (verification
+ *   failures are reported internally and take precedence).
+ */
+@Composable
+fun VerifyPasswordDialog(
+    secureStorage: SecureStorage,
+    isDecoyMode: Boolean,
+    onDismiss: () -> Unit,
+    onVerified: () -> Unit,
+    isLoading: Boolean = false,
+    errorMessage: String = ""
+) {
+    var isVerifying by remember { mutableStateOf(false) }
+    var verifyError by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    ConfirmPasswordDialog(
+        onDismiss = onDismiss,
+        onConfirm = { password ->
+            if (!isVerifying) {
+                isVerifying = true
+                verifyError = ""
+                scope.launch {
+                    val owner = withContext(Dispatchers.Default) {
+                        secureStorage.classifyPassword(password)
+                    }
+                    val expected = if (isDecoyMode) {
+                        SecureStorage.PasswordOwner.DECOY
+                    } else {
+                        SecureStorage.PasswordOwner.MAIN
+                    }
+                    isVerifying = false
+                    if (owner == expected) {
+                        onVerified()
+                    } else {
+                        verifyError = "Incorrect password"
+                    }
+                }
+            }
+        },
+        isLoading = isVerifying || isLoading,
+        errorMessage = verifyError.ifEmpty { errorMessage }
+    )
+}
+
+/**
  * Generic password confirmation dialog for sensitive operations.
- * Used throughout the app for consistent password verification UX.
+ * Prefer [VerifyPasswordDialog], which performs the verification itself off the main
+ * thread; use this directly only when the caller needs the raw password.
  *
  * @param onDismiss Called when user cancels the dialog
  * @param onConfirm Called with the entered password when user confirms

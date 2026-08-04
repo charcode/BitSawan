@@ -345,6 +345,21 @@ class SecureStorage(private val context: Context) {
      */
     fun isDecoyPassword(password: String): Boolean = verifyDecoyPassword(password)
 
+    /** Which vault a password belongs to. See [classifyPassword]. */
+    enum class PasswordOwner { MAIN, DECOY, NONE }
+
+    /**
+     * Identifies which vault a password belongs to in a single pass — at most two PBKDF2
+     * derivations, without rate limiting. Password-confirmation dialogs should use this
+     * instead of `verifyPasswordSimple(p) && !isDecoyPassword(p)`, which derives the decoy
+     * hash twice (up to three PBKDF2 runs at 600k iterations each).
+     */
+    fun classifyPassword(password: String): PasswordOwner = when {
+        verifyMainPassword(password) -> PasswordOwner.MAIN
+        verifyDecoyPassword(password) -> PasswordOwner.DECOY
+        else -> PasswordOwner.NONE
+    }
+
     // ============================================================================
     // PASSWORD CHANGE (Atomic with crash recovery)
     // ============================================================================

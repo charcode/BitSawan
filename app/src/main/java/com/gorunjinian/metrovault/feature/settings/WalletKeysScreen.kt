@@ -19,7 +19,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.storage.SecureStorage
-import com.gorunjinian.metrovault.core.ui.dialogs.ConfirmPasswordDialog
+import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
 import com.gorunjinian.metrovault.data.model.WalletKeys
 import com.gorunjinian.metrovault.domain.Wallet
 import kotlinx.coroutines.launch
@@ -52,14 +52,12 @@ fun WalletKeysScreen(
     var keyToView by remember { mutableStateOf<WalletKeys?>(null) }
     var showKeyDetailsDialog by remember { mutableStateOf(false) }
     var showSeedPasswordDialog by remember { mutableStateOf(false) }
-    var seedPasswordError by remember { mutableStateOf("") }
     var isMnemonicVisible by remember { mutableStateOf(false) }
     
     // Delete dialog state
     var keyToDelete by remember { mutableStateOf<WalletKeys?>(null) }
     var showDeleteWarning by remember { mutableStateOf(false) }
     var showDeletePasswordDialog by remember { mutableStateOf(false) }
-    var deletePasswordError by remember { mutableStateOf("") }
     var isDeleting by remember { mutableStateOf(false) }
     var walletsToDelete by remember { mutableStateOf<List<String>>(emptyList()) }
     var multisigWalletsUsingKey by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -241,7 +239,6 @@ fun WalletKeysScreen(
                                         multisigWalletsUsingKey = secureStorage.getMultisigWalletsUsingFingerprint(
                                             key.fingerprint, wallet.isDecoyMode
                                         )
-                                        deletePasswordError = ""
                                         showDeletePasswordDialog = true
                                     }
                                 ) {
@@ -305,28 +302,14 @@ fun WalletKeysScreen(
     // Seed Phrase Password Dialog (triggered by Show button)
     // ========================================
     if (showSeedPasswordDialog && keyToView != null) {
-        ConfirmPasswordDialog(
-            onDismiss = {
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
+            onDismiss = { showSeedPasswordDialog = false },
+            onVerified = {
                 showSeedPasswordDialog = false
-                seedPasswordError = ""
-            },
-            onConfirm = { password ->
-                val isDecoy = wallet.isDecoyMode
-                val isValidPassword = if (isDecoy) {
-                    secureStorage.isDecoyPassword(password)
-                } else {
-                    secureStorage.verifyPasswordSimple(password) && !secureStorage.isDecoyPassword(password)
-                }
-                
-                if (isValidPassword) {
-                    showSeedPasswordDialog = false
-                    seedPasswordError = ""
-                    isMnemonicVisible = true
-                } else {
-                    seedPasswordError = "Incorrect password"
-                }
-            },
-            errorMessage = seedPasswordError
+                isMnemonicVisible = true
+            }
         )
     }
     
@@ -393,7 +376,6 @@ fun WalletKeysScreen(
                                         isMnemonicVisible = false
                                     } else {
                                         // Show requires password confirmation
-                                        seedPasswordError = ""
                                         showSeedPasswordDialog = true
                                     }
                                 }
@@ -594,7 +576,6 @@ fun WalletKeysScreen(
                 TextButton(
                     onClick = {
                         showDeleteWarning = false
-                        deletePasswordError = ""
                         showDeletePasswordDialog = true
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -615,23 +596,17 @@ fun WalletKeysScreen(
     // Delete Password Confirmation Dialog
     // ========================================
     if (showDeletePasswordDialog && keyToDelete != null) {
-        ConfirmPasswordDialog(
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
             onDismiss = {
                 showDeletePasswordDialog = false
                 keyToDelete = null
-                deletePasswordError = ""
             },
-            onConfirm = { password ->
+            onVerified = {
                 val isDecoy = wallet.isDecoyMode
-                val isValidPassword = if (isDecoy) {
-                    secureStorage.isDecoyPassword(password)
-                } else {
-                    secureStorage.verifyPasswordSimple(password) && !secureStorage.isDecoyPassword(password)
-                }
-                
-                if (isValidPassword) {
-                    isDeleting = true
-                    scope.launch {
+                isDeleting = true
+                scope.launch {
                         val key = keyToDelete!!
                         
                         // First, delete all wallets that reference this key
@@ -681,12 +656,8 @@ fun WalletKeysScreen(
                         keyToDelete = null
                         loadKeys()
                     }
-                } else {
-                    deletePasswordError = "Incorrect password"
-                }
             },
-            isLoading = isDeleting,
-            errorMessage = deletePasswordError
+            isLoading = isDeleting
         )
     }
 }

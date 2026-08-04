@@ -31,7 +31,7 @@ import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.qr.QRCodeUtils
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.storage.SecureStorage
-import com.gorunjinian.metrovault.core.ui.dialogs.ConfirmPasswordDialog
+import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
 import com.gorunjinian.metrovault.domain.service.bitcoin.AddressService
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 
@@ -53,7 +53,6 @@ fun AddressDetailScreen(
     var showWarningDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showKeysDialog by remember { mutableStateOf(false) }
-    var passwordError by remember { mutableStateOf("") }
     var addressKeys by remember { mutableStateOf<AddressService.AddressKeyPair?>(null) }
 
     val context = LocalContext.current
@@ -216,7 +215,6 @@ fun AddressDetailScreen(
                 TextButton(
                     onClick = {
                         showWarningDialog = false
-                        passwordError = ""
                         showPasswordDialog = true
                     }
                 ) {
@@ -240,26 +238,18 @@ fun AddressDetailScreen(
     
     // Password Confirmation Dialog
     if (showPasswordDialog) {
-        ConfirmPasswordDialog(
-            onDismiss = {
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
+            onDismiss = { showPasswordDialog = false },
+            onVerified = {
+                addressKeys = wallet.getAddressKeys(
+                    index = addressIndex,
+                    isChange = isChange
+                )
                 showPasswordDialog = false
-                passwordError = ""
-            },
-            onConfirm = { password ->
-                if (secureStorage.verifyPasswordSimple(password) && 
-                    !secureStorage.isDecoyPassword(password)) {
-                    // Password correct - get the keys
-                    addressKeys = wallet.getAddressKeys(
-                        index = addressIndex,
-                        isChange = isChange
-                    )
-                    showPasswordDialog = false
-                    showKeysDialog = true
-                } else {
-                    passwordError = "Incorrect password"
-                }
-            },
-            errorMessage = passwordError
+                showKeysDialog = true
+            }
         )
     }
     

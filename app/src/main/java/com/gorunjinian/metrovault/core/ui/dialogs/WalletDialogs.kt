@@ -12,10 +12,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.storage.SecureStorage
 import com.gorunjinian.metrovault.core.ui.components.SecureOutlinedTextField
@@ -245,32 +243,21 @@ fun DeleteWalletDialogs(
             passwordError = ""
         }
 
-        ConfirmPasswordDialog(
-            onDismiss = { 
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
+            onDismiss = {
                 showPasswordDialog = false
                 onDismiss()
             },
-            onConfirm = { password ->
+            onVerified = {
                 scope.launch {
-                    val isDecoy = wallet.isDecoyMode
-                    val isValid = withContext(Dispatchers.IO) {
-                        if (isDecoy) {
-                            secureStorage.isDecoyPassword(password)
-                        } else {
-                            secureStorage.verifyPasswordSimple(password) && !secureStorage.isDecoyPassword(password)
-                        }
-                    }
-                    
-                    if (isValid) {
-                        val deleted = wallet.deleteWallet(walletToDelete.id)
-                        if (deleted) {
-                            showPasswordDialog = false
-                            onDeleted()
-                        } else {
-                            passwordError = "Failed to delete wallet. Session might be expired."
-                        }
+                    val deleted = wallet.deleteWallet(walletToDelete.id)
+                    if (deleted) {
+                        showPasswordDialog = false
+                        onDeleted()
                     } else {
-                        passwordError = "Incorrect password"
+                        passwordError = "Failed to delete wallet. Session might be expired."
                     }
                 }
             },

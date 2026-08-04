@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.storage.SecureStorage
-import com.gorunjinian.metrovault.core.ui.dialogs.ConfirmPasswordDialog
+import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 
 /**
@@ -58,7 +58,6 @@ fun ExportOptionsScreen(
     val canExportSilentPayments = canDeriveSilentPayments && (silentPaymentsEnabled || isSpFlaggedWallet)
     // Password confirmation state
     var showPasswordDialog by remember { mutableStateOf(false) }
-    var passwordError by remember { mutableStateOf("") }
     
     // Track which sensitive view is being accessed
     var pendingTarget by remember { mutableStateOf<SensitiveViewTarget?>(null) }
@@ -272,7 +271,6 @@ fun ExportOptionsScreen(
                     onClick = {
                         showRootKeyWarningDialog = false
                         pendingTarget = SensitiveViewTarget.ROOT_KEY
-                        passwordError = ""
                         showPasswordDialog = true
                     }
                 ) {
@@ -305,7 +303,6 @@ fun ExportOptionsScreen(
                     onClick = {
                         showSeedWarningDialog = false
                         pendingTarget = SensitiveViewTarget.SEED_PHRASE
-                        passwordError = ""
                         showPasswordDialog = true
                     }
                 ) {
@@ -327,34 +324,22 @@ fun ExportOptionsScreen(
     
     // Password confirmation dialog for sensitive views
     if (showPasswordDialog) {
-        ConfirmPasswordDialog(
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
             onDismiss = {
                 showPasswordDialog = false
-                passwordError = ""
                 pendingTarget = null
             },
-            onConfirm = { password ->
-                val isDecoy = wallet.isDecoyMode
-                val isValid = if (isDecoy) {
-                    secureStorage.isDecoyPassword(password)
-                } else {
-                    secureStorage.verifyPasswordSimple(password) && !secureStorage.isDecoyPassword(password)
+            onVerified = {
+                showPasswordDialog = false
+                when (pendingTarget) {
+                    SensitiveViewTarget.SEED_PHRASE -> onViewSeedPhrase()
+                    SensitiveViewTarget.ROOT_KEY -> onViewRootKey()
+                    null -> { /* shouldn't happen */ }
                 }
-
-                if (isValid) {
-                    showPasswordDialog = false
-                    passwordError = ""
-                    when (pendingTarget) {
-                        SensitiveViewTarget.SEED_PHRASE -> onViewSeedPhrase()
-                        SensitiveViewTarget.ROOT_KEY -> onViewRootKey()
-                        null -> { /* shouldn't happen */ }
-                    }
-                    pendingTarget = null
-                } else {
-                    passwordError = "Incorrect password"
-                }
-            },
-            errorMessage = passwordError
+                pendingTarget = null
+            }
         )
     }
 }

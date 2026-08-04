@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.storage.SecureStorage
-import com.gorunjinian.metrovault.core.ui.dialogs.ConfirmPasswordDialog
+import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
 import com.gorunjinian.metrovault.core.ui.dialogs.RenameAccountDialog
 import com.gorunjinian.metrovault.data.model.DerivationPaths
 import com.gorunjinian.metrovault.domain.Wallet
@@ -307,30 +307,27 @@ fun DifferentAccountsScreen(
     
     // Password Confirmation Dialog
     if (showPasswordDialog && accountToDelete != null) {
-        ConfirmPasswordDialog(
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
             onDismiss = {
                 showPasswordDialog = false
                 accountToDelete = null
                 passwordError = ""
             },
-            onConfirm = { password ->
-                if (secureStorage.verifyPasswordSimple(password) && 
-                    !secureStorage.isDecoyPassword(password)) {
-                    isDeleting = true
-                    scope.launch {
-                        val success = walletId?.let { 
-                            wallet.removeAccountFromWallet(it, accountToDelete!!) 
-                        } ?: false
-                        isDeleting = false
-                        if (success) {
-                            showPasswordDialog = false
-                            accountToDelete = null
-                        } else {
-                            passwordError = "Failed to delete account"
-                        }
+            onVerified = {
+                isDeleting = true
+                scope.launch {
+                    val success = walletId?.let {
+                        wallet.removeAccountFromWallet(it, accountToDelete!!)
+                    } ?: false
+                    isDeleting = false
+                    if (success) {
+                        showPasswordDialog = false
+                        accountToDelete = null
+                    } else {
+                        passwordError = "Failed to delete account"
                     }
-                } else {
-                    passwordError = "Incorrect password"
                 }
             },
             isLoading = isDeleting,

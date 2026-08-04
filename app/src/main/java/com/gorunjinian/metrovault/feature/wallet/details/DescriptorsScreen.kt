@@ -21,7 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.storage.SecureStorage
-import com.gorunjinian.metrovault.core.ui.dialogs.ConfirmPasswordDialog
+import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
 import com.gorunjinian.metrovault.core.util.SecurityUtils
 import com.gorunjinian.metrovault.data.model.DerivationPaths
 import com.gorunjinian.metrovault.core.qr.QRCodeUtils
@@ -66,7 +66,6 @@ fun DescriptorsScreen(
     
     // Password confirmation state
     var showPasswordDialog by remember { mutableStateOf(false) }
-    var passwordError by remember { mutableStateOf("") }
 
     // Account selection state - unified for both stateless and persistent wallets
     val walletsList by wallet.wallets.collectAsState()
@@ -241,7 +240,6 @@ fun DescriptorsScreen(
                 showPrivate = showPrivate,
                 onSelectPublic = { showPrivate = false },
                 onSelectPrivate = {
-                    passwordError = ""
                     showPasswordDialog = true
                 }
             )
@@ -352,28 +350,14 @@ fun DescriptorsScreen(
     
     // Password confirmation dialog
     if (showPasswordDialog) {
-        ConfirmPasswordDialog(
-            onDismiss = {
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
+            onDismiss = { showPasswordDialog = false },
+            onVerified = {
                 showPasswordDialog = false
-                passwordError = ""
-            },
-            onConfirm = { password ->
-                val isDecoy = wallet.isDecoyMode
-                val isValid = if (isDecoy) {
-                    secureStorage.isDecoyPassword(password)
-                } else {
-                    secureStorage.verifyPasswordSimple(password) && !secureStorage.isDecoyPassword(password)
-                }
-
-                if (isValid) {
-                    showPasswordDialog = false
-                    showPrivate = true
-                    passwordError = ""
-                } else {
-                    passwordError = "Incorrect password"
-                }
-            },
-            errorMessage = passwordError
+                showPrivate = true
+            }
         )
     }
 }

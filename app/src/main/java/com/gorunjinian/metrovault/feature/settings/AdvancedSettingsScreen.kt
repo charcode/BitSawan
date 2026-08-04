@@ -18,7 +18,7 @@ import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.storage.SecureStorage
 import com.gorunjinian.metrovault.core.ui.components.SettingsInfoCard
 import com.gorunjinian.metrovault.core.ui.components.SettingsItem
-import com.gorunjinian.metrovault.core.ui.dialogs.ConfirmPasswordDialog
+import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 import com.gorunjinian.metrovault.domain.Wallet
 
@@ -46,7 +46,6 @@ fun AdvancedSettingsScreen(
     var showDeletePasswordDialog by remember { mutableStateOf(false) }
     var showDisableAccountsWarningDialog by remember { mutableStateOf(false) }
     var showKeysPasswordDialog by remember { mutableStateOf(false) }
-    var keysPasswordError by remember { mutableStateOf("") }
 
     // Check if any wallet has multiple accounts
     val walletsList by wallet.wallets.collectAsState()
@@ -287,8 +286,7 @@ fun AdvancedSettingsScreen(
                 icon = R.drawable.ic_key,
                 title = "View All Saved Keys",
                 description = "Manage the keys stored in the vault",
-                onClick = { 
-                    keysPasswordError = ""
+                onClick = {
                     showKeysPasswordDialog = true
                 }
             )
@@ -352,47 +350,38 @@ fun AdvancedSettingsScreen(
         var passwordError by remember { mutableStateOf("") }
         var isDeleting by remember { mutableStateOf(false) }
 
-        ConfirmPasswordDialog(
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
             onDismiss = {
                 if (!isDeleting) {
                     showDeletePasswordDialog = false
                     passwordError = ""
                 }
             },
-            onConfirm = { password ->
-                val isDecoy = wallet.isDecoyMode
-                val isValidPassword = if (isDecoy) {
-                    secureStorage.isDecoyPassword(password)
-                } else {
-                    secureStorage.verifyPasswordSimple(password) && !secureStorage.isDecoyPassword(password)
-                }
-
-                if (isValidPassword) {
-                    isDeleting = true
-                    scope.launch {
-                        val walletList = wallet.wallets.value
-                        var allDeleted = true
-                        for (w in walletList) {
-                            val deleted = wallet.deleteWallet(w.id)
-                            if (!deleted) {
-                                allDeleted = false
-                                break
-                            }
-                        }
-                        isDeleting = false
-                        if (allDeleted) {
-                            showDeletePasswordDialog = false
-                            android.widget.Toast.makeText(
-                                context,
-                                "All wallets deleted",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        } else {
-                            passwordError = "Failed to delete all wallets"
+            onVerified = {
+                isDeleting = true
+                scope.launch {
+                    val walletList = wallet.wallets.value
+                    var allDeleted = true
+                    for (w in walletList) {
+                        val deleted = wallet.deleteWallet(w.id)
+                        if (!deleted) {
+                            allDeleted = false
+                            break
                         }
                     }
-                } else {
-                    passwordError = "Incorrect password"
+                    isDeleting = false
+                    if (allDeleted) {
+                        showDeletePasswordDialog = false
+                        android.widget.Toast.makeText(
+                            context,
+                            "All wallets deleted",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        passwordError = "Failed to delete all wallets"
+                    }
                 }
             },
             isLoading = isDeleting,
@@ -438,28 +427,14 @@ fun AdvancedSettingsScreen(
 
     // Password confirmation dialog for View All Saved Keys
     if (showKeysPasswordDialog) {
-        ConfirmPasswordDialog(
-            onDismiss = {
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
+            onDismiss = { showKeysPasswordDialog = false },
+            onVerified = {
                 showKeysPasswordDialog = false
-                keysPasswordError = ""
-            },
-            onConfirm = { password ->
-                val isDecoy = wallet.isDecoyMode
-                val isValidPassword = if (isDecoy) {
-                    secureStorage.isDecoyPassword(password)
-                } else {
-                    secureStorage.verifyPasswordSimple(password) && !secureStorage.isDecoyPassword(password)
-                }
-
-                if (isValidPassword) {
-                    showKeysPasswordDialog = false
-                    keysPasswordError = ""
-                    onViewSavedKeys()
-                } else {
-                    keysPasswordError = "Incorrect password"
-                }
-            },
-            errorMessage = keysPasswordError
+                onViewSavedKeys()
+            }
         )
     }
 }

@@ -554,12 +554,13 @@ fun SecuritySettingsScreen(
             },
             onConfirm = { enteredPassword ->
                 scope.launch {
-                    val isValidPassword = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        if (isDecoy) {
-                            secureStorage.isDecoyPassword(enteredPassword)
-                        } else {
-                            secureStorage.verifyPasswordSimple(enteredPassword) && !secureStorage.isDecoyPassword(enteredPassword)
-                        }
+                    val expectedOwner = if (isDecoy) {
+                        SecureStorage.PasswordOwner.DECOY
+                    } else {
+                        SecureStorage.PasswordOwner.MAIN
+                    }
+                    val isValidPassword = withContext(kotlinx.coroutines.Dispatchers.Default) {
+                        secureStorage.classifyPassword(enteredPassword) == expectedOwner
                     }
 
                     if (isValidPassword) {

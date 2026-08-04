@@ -30,7 +30,7 @@ import androidx.compose.ui.window.Dialog
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.qr.QRCodeUtils
 import com.gorunjinian.metrovault.core.storage.SecureStorage
-import com.gorunjinian.metrovault.core.ui.dialogs.ConfirmPasswordDialog
+import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
 import com.gorunjinian.metrovault.data.model.SilentPaymentKeys
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 import com.gorunjinian.metrovault.domain.Wallet
@@ -253,27 +253,18 @@ fun SilentPaymentAddressContent(
     }
 
     if (showPasswordDialog) {
-        ConfirmPasswordDialog(
+        VerifyPasswordDialog(
+            secureStorage = secureStorage,
+            isDecoyMode = wallet.isDecoyMode,
             onDismiss = {
                 showPasswordDialog = false
                 passwordError = ""
             },
-            onConfirm = { password ->
-                val isDecoy = wallet.isDecoyMode
-                val isValid = if (isDecoy) {
-                    secureStorage.isDecoyPassword(password)
-                } else {
-                    secureStorage.verifyPasswordSimple(password) &&
-                        !secureStorage.isDecoyPassword(password)
-                }
-                if (isValid) {
-                    revealedKeys = wallet.getActiveSilentPaymentKeys()
-                    showPasswordDialog = false
-                    showKeysDialog = revealedKeys != null
-                    passwordError = if (revealedKeys == null) "Keys unavailable" else ""
-                } else {
-                    passwordError = "Incorrect password"
-                }
+            onVerified = {
+                revealedKeys = wallet.getActiveSilentPaymentKeys()
+                showPasswordDialog = false
+                showKeysDialog = revealedKeys != null
+                passwordError = if (revealedKeys == null) "Keys unavailable" else ""
             },
             errorMessage = passwordError
         )
