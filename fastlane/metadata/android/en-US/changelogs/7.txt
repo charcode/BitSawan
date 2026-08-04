@@ -1,0 +1,5 @@
+- Import multisig wallets from vendor setup files (ColdCard, Passport, Jade, Sparrow) via QR
+- Hardened security: stronger password key derivation, clock-manipulation-resistant login lockouts, stricter biometrics, BIP-340 nonce hardening
+- "Save passphrase locally" is now off by default when creating a wallet
+- New guide for setting up a dedicated air-gapped signing device
+- Slightly smaller APK and improved UI responsiveness
