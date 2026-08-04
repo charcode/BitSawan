@@ -3,21 +3,30 @@ package com.gorunjinian.metrovault.navigation
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.gorunjinian.metrovault.core.crypto.SessionKeyManager
 import com.gorunjinian.metrovault.core.logging.AppLog
 import com.gorunjinian.metrovault.core.storage.SecureStorage
 import com.gorunjinian.metrovault.domain.Wallet
@@ -56,6 +65,8 @@ import com.gorunjinian.metrovault.feature.settings.AdvancedSettingsScreen
 import com.gorunjinian.metrovault.feature.settings.WalletKeysScreen
 import com.gorunjinian.metrovault.feature.settings.LibUsedScreen
 import com.gorunjinian.metrovault.feature.settings.WhitePaperScreen
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 // Optimized animation parameters for smoother performance
 private const val ANIMATION_DURATION = 250
@@ -76,7 +87,7 @@ sealed class Screen(val route: String) {
     }
     object AddressDetail : Screen("address_detail?address={address}&index={index}&isChange={isChange}") {
         fun createRoute(address: String, index: Int, isChange: Boolean): String {
-            return "address_detail?address=${java.net.URLEncoder.encode(address, "UTF-8")}&index=$index&isChange=$isChange"
+            return "address_detail?address=${encodeNavArg(address)}&index=$index&isChange=$isChange"
         }
     }
     object ScanPSBT : Screen("scan_psbt")
@@ -84,7 +95,7 @@ sealed class Screen(val route: String) {
     object ExportMultiSig : Screen("export_multisig")
     object VerifyMultisig : Screen("verify_multisig?walletId={walletId}") {
         fun createRoute(walletId: String): String =
-            "verify_multisig?walletId=${java.net.URLEncoder.encode(walletId, "UTF-8")}"
+            "verify_multisig?walletId=${encodeNavArg(walletId)}"
     }
     object SilentPaymentExport : Screen("silent_payment_export")
     object SPAddress : Screen("sp_address")
@@ -92,7 +103,7 @@ sealed class Screen(val route: String) {
     object SignMessage : Screen("sign_message?address={address}") {
         fun createRoute(address: String? = null): String {
             return if (address != null) {
-                "sign_message?address=${java.net.URLEncoder.encode(address, "UTF-8")}"
+                "sign_message?address=${encodeNavArg(address)}"
             } else {
                 "sign_message"
             }
@@ -117,7 +128,6 @@ sealed class Screen(val route: String) {
     object WhitePaper : Screen("white_paper")
 }
 
-@Suppress("AssignedValueIsNeverRead")
 @Composable
 fun AppNavigation(
     userPreferencesRepository: UserPreferencesRepository = UserPreferencesRepository(LocalContext.current)
@@ -125,17 +135,11 @@ fun AppNavigation(
     val navController = rememberNavController()
     val context = LocalContext.current
     val activity = context as androidx.fragment.app.FragmentActivity
-     val secureStorage = remember { SecureStorage(context) }
+    val secureStorage = remember { SecureStorage(context) }
     val wallet = remember { Wallet.getInstance(context) }
+    val sessionViewModel: AppSessionViewModel = viewModel()
 
     val scope = rememberCoroutineScope()
-
-    // Auto-open state - placed at AppNavigation level so it survives NavHost recomposition
-    // null = no pending operation, true = auto-open requested, false = normal unlock
-    var pendingAutoOpen by remember { mutableStateOf<Boolean?>(null) }
-
-    // Guard against re-entry during wallet loading - prevents race conditions
-    var isProcessingAutoOpen by remember { mutableStateOf(false) }
 
     // Determine start destination based on password state only - computed ONCE at startup
     // Using rememberSaveable to ensure it survives recomposition and configuration changes
@@ -147,107 +151,54 @@ fun AppNavigation(
         }
     }
 
-    // Handle wallet loading and navigation when auto-open is triggered
-    // This LaunchedEffect is at the AppNavigation level, so it won't be canceled
-    // when the Unlock screen is disposed due to walletsList state changes
-    LaunchedEffect(pendingAutoOpen) {
-        val autoOpen = pendingAutoOpen ?: return@LaunchedEffect
-
-        // Guard against re-entry - prevents race condition where effect triggers multiple times
-        if (isProcessingAutoOpen) {
-            AppLog.d("AppNavigation") { "Already processing auto-open, skipping" }
-            return@LaunchedEffect
-        }
-        isProcessingAutoOpen = true
-
-        AppLog.d("AppNavigation") { "LaunchedEffect triggered: autoOpen=$autoOpen" }
-
-        try {
-            if (autoOpen) {
-                // Auto-open: Load the wallet before navigating
-                val wallets = wallet.wallets.value
-                AppLog.d("AppNavigation") { "Checking wallets: size=${wallets.size}" }
-                if (wallets.size == 1) {
-                    val singleWallet = wallets.first()
-                    AppLog.d("AppNavigation") { "Loading single wallet" }
-                    val loaded = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        wallet.openWallet(singleWallet.id, showLoading = false)
+    // Auto-open and session-expiry decisions live in AppSessionViewModel; this
+    // collector is the single place its events turn into NavController calls
+    LaunchedEffect(Unit) {
+        sessionViewModel.navigationEvents.collect { event ->
+            when (event) {
+                AppSessionViewModel.NavigationEvent.ToHome -> {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Unlock.route) { inclusive = true }
                     }
-                    AppLog.d("AppNavigation") { "Wallet loaded: $loaded" }
-
-                    if (loaded) {
-                        // Clear pending state
-                        pendingAutoOpen = null
-
-                        // Navigate to wallet details with Home as back destination
-                        // First navigate to Home, clearing the unlock screen
-                        AppLog.d("AppNavigation") { "Navigating to Home then WalletDetails" }
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Unlock.route) { inclusive = true }
-                        }
-                        // Small yield to let the first navigation settle before the second
-                        // This prevents potential back stack inconsistency from rapid sequential navigations
-                        kotlinx.coroutines.yield()
-                        // Then navigate to WalletDetails on top of Home
-                        navController.navigate(Screen.WalletDetails.route) {
-                            launchSingleTop = true // Prevent duplicate entries
-                        }
-                        AppLog.d("AppNavigation") { "Navigation complete" }
-                        return@LaunchedEffect
+                }
+                AppSessionViewModel.NavigationEvent.ToHomeThenWalletDetails -> {
+                    // Navigate to wallet details with Home as back destination
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Unlock.route) { inclusive = true }
+                    }
+                    // Small yield to let the first navigation settle before the second
+                    // This prevents potential back stack inconsistency from rapid sequential navigations
+                    yield()
+                    navController.navigate(Screen.WalletDetails.route) {
+                        launchSingleTop = true // Prevent duplicate entries
+                    }
+                }
+                AppSessionViewModel.NavigationEvent.ToUnlock -> {
+                    navController.navigate(Screen.Unlock.route) {
+                        popUpTo(0) { inclusive = true }
                     }
                 }
             }
-
-            // Default: navigate to home
-            AppLog.d("AppNavigation") { "Default: navigating to Home" }
-            pendingAutoOpen = null
-            navController.navigate(Screen.Home.route) {
-                popUpTo(Screen.Unlock.route) { inclusive = true }
-            }
-        } finally {
-            isProcessingAutoOpen = false
         }
     }
-    
-    // Debug: Track all destination changes
+
+    // Track destination changes - feeds the session-expiry watcher (and debug logging)
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     LaunchedEffect(currentBackStackEntry) {
-        AppLog.d("AppNavigation") { "DESTINATION CHANGED: ${currentBackStackEntry?.destination?.route}" }
+        val route = currentBackStackEntry?.destination?.route
+        AppLog.d("AppNavigation") { "DESTINATION CHANGED: $route" }
+        sessionViewModel.onDestinationChanged(route)
     }
 
-    // Track lifecycle state to avoid navigating when app is backgrounded
+    // Track lifecycle state so the session-expiry watcher doesn't navigate while backgrounded
     val lifecycleOwner = LocalLifecycleOwner.current
-    var isAppResumed by remember { mutableStateOf(true) }
-    
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            isAppResumed = event == Lifecycle.Event.ON_RESUME
+            sessionViewModel.onAppResumedChanged(event == Lifecycle.Event.ON_RESUME)
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    // Observe session state - navigate to unlock screen when session expires
-    // Only navigate if app is in foreground to avoid flashing unlock screen when backgrounding
-    val sessionKeyManager = remember { SessionKeyManager.getInstance() }
-    val isSessionActive by sessionKeyManager.isSessionActive.collectAsState()
-
-    LaunchedEffect(isSessionActive, isAppResumed) {
-        val currentRoute = currentBackStackEntry?.destination?.route
-        // If session becomes inactive, app is resumed, and we're not already on auth screens, navigate to unlock
-        if (!isSessionActive &&
-            isAppResumed &&
-            currentRoute != null &&
-            currentRoute != Screen.Unlock.route &&
-            currentRoute != Screen.SetupPassword.route) {
-            AppLog.d("AppNavigation") { "Session expired while app resumed - navigating to unlock screen" }
-            // Wipe stateless wallet on session lock
-            wallet.wipeStatelessWallet()
-            navController.navigate(Screen.Unlock.route) {
-                popUpTo(0) { inclusive = true }
-            }
         }
     }
 
@@ -300,10 +251,7 @@ fun AppNavigation(
         composable(Screen.Unlock.route) {
             UnlockScreen(
                 userPreferencesRepository = userPreferencesRepository,
-                onUnlockSuccess = { autoOpenRequested ->
-                    // Set state at AppNavigation level to trigger the LaunchedEffect
-                    pendingAutoOpen = autoOpenRequested
-                },
+                onUnlockSuccess = sessionViewModel::onUnlockSuccess,
                 onDataWiped = {
                     // Data was wiped due to failed login attempts - navigate to setup
                     navController.navigate(Screen.SetupPassword.route) {
@@ -316,7 +264,7 @@ fun AppNavigation(
         composable(Screen.Home.route) {
             // Wipe wallet keys from memory when returning to Home (security)
             LaunchedEffect(Unit) {
-                wallet.unloadAllWalletKeys()
+                sessionViewModel.onHomeOpened()
             }
             
             HomeScreen(
@@ -385,10 +333,7 @@ fun AppNavigation(
                 }
             )
         ) { backStackEntry ->
-            val walletId = java.net.URLDecoder.decode(
-                backStackEntry.arguments?.getString("walletId") ?: "",
-                "UTF-8"
-            )
+            val walletId = backStackEntry.decodedStringArg("walletId") ?: ""
             VerifyMultisigScreen(
                 walletId = walletId,
                 onDone = {
@@ -455,11 +400,7 @@ fun AppNavigation(
                 wallet = wallet,
                 userPreferencesRepository = userPreferencesRepository,
                 initialTabIndex = returnTab,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                },
+                onBack = { navController.navigateBackOr(Screen.Home) },
                 onAddressSelected = { address, index, isChange ->
                     // Set the return tab BEFORE navigating so predictive back animation works
                     backStackEntry.savedStateHandle["returnTab"] = if (isChange) 1 else 0
@@ -473,11 +414,7 @@ fun AppNavigation(
             SPAddressScreen(
                 wallet = wallet,
                 userPreferencesRepository = userPreferencesRepository,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.WalletDetails.route)
-                    }
-                },
+                onBack = { navController.navigateBackOr(Screen.WalletDetails) },
                 onExport = { navController.navigate(Screen.SilentPaymentExport.route) }
             )
         }
@@ -490,10 +427,7 @@ fun AppNavigation(
                 navArgument("isChange") { type = NavType.BoolType }
             )
         ) { backStackEntry ->
-            val address = java.net.URLDecoder.decode(
-                backStackEntry.arguments?.getString("address") ?: "",
-                "UTF-8"
-            )
+            val address = backStackEntry.decodedStringArg("address") ?: ""
             val index = backStackEntry.arguments?.getInt("index") ?: 0
             val isChange = backStackEntry.arguments?.getBoolean("isChange") ?: false
             
@@ -513,11 +447,7 @@ fun AppNavigation(
         composable(Screen.ScanPSBT.route) {
             ScanPSBTScreen(
                 wallet = wallet,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.Home) }
             )
         }
 
@@ -527,11 +457,7 @@ fun AppNavigation(
                 secureStorage = secureStorage,
                 userPreferencesRepository = userPreferencesRepository,
                 isStatelessWallet = wallet.hasStatelessWallet(),
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                },
+                onBack = { navController.navigateBackOr(Screen.Home) },
                 onViewAccountKeys = { navController.navigate(Screen.AccountKeys.route) },
                 onViewDescriptors = { navController.navigate(Screen.Descriptors.route) },
                 onViewRootKey = { navController.navigate(Screen.RootKey.route) },
@@ -544,32 +470,37 @@ fun AppNavigation(
             SilentPaymentExportScreen(
                 wallet = wallet,
                 userPreferencesRepository = userPreferencesRepository,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.ExportOptions.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.ExportOptions) }
             )
         }
 
         composable(Screen.ExportMultiSig.route) {
-            val metadata = wallet.getActiveWalletId()?.let { id ->
-                secureStorage.loadWalletMetadata(id, wallet.isDecoyMode)
-            }
-            val descriptor = metadata?.multisigConfig?.rawDescriptor ?: ""
-            
-            // Generate first receive address for BSMS format
-            val firstAddress = wallet.generateAddresses(1, 0, isChange = false)?.firstOrNull()?.address ?: ""
-            
-            ExportMultiSigScreen(
-                descriptor = descriptor,
-                firstAddress = firstAddress,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
+            // Metadata load + address derivation are disk/crypto work - run once, off Main
+            val exportData by produceState<Pair<String, String>?>(initialValue = null) {
+                value = withContext(Dispatchers.IO) {
+                    val metadata = wallet.getActiveWalletId()?.let { id ->
+                        secureStorage.loadWalletMetadata(id, wallet.isDecoyMode)
                     }
+                    val descriptor = metadata?.multisigConfig?.rawDescriptor ?: ""
+                    // First receive address for BSMS format
+                    val firstAddress = wallet.generateAddresses(1, 0, isChange = false)
+                        ?.firstOrNull()?.address ?: ""
+                    descriptor to firstAddress
                 }
-            )
+            }
+
+            val data = exportData
+            if (data == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                ExportMultiSigScreen(
+                    descriptor = data.first,
+                    firstAddress = data.second,
+                    onBack = { navController.navigateBackOr(Screen.Home) }
+                )
+            }
         }
 
         composable(Screen.AccountKeys.route) {
@@ -577,11 +508,7 @@ fun AppNavigation(
                 wallet = wallet,
                 secureStorage = secureStorage,
                 userPreferencesRepository = userPreferencesRepository,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.ExportOptions.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.ExportOptions) }
             )
         }
 
@@ -590,22 +517,14 @@ fun AppNavigation(
                 wallet = wallet,
                 secureStorage = secureStorage,
                 userPreferencesRepository = userPreferencesRepository,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.ExportOptions.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.ExportOptions) }
             )
         }
 
         composable(Screen.SeedPhrase.route) {
             SeedPhraseScreen(
                 wallet = wallet,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.ExportOptions.route)
-                    }
-                },
+                onBack = { navController.navigateBackOr(Screen.ExportOptions) },
                 onShowSeedQR = {
                     navController.navigate(Screen.SeedQR.route)
                 }
@@ -631,11 +550,7 @@ fun AppNavigation(
             RootKeyScreen(
                 wallet = wallet,
                 userPreferencesRepository = userPreferencesRepository,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.ExportOptions.route)
-                    }
-                },
+                onBack = { navController.navigateBackOr(Screen.ExportOptions) },
                 onBackToExportOptions = {
                     navController.popBackStack(Screen.ExportOptions.route, inclusive = false)
                 }
@@ -645,11 +560,7 @@ fun AppNavigation(
         composable(Screen.BIP85Derive.route) {
             BIP85DeriveScreen(
                 wallet = wallet,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.Home) }
             )
         }
 
@@ -657,22 +568,14 @@ fun AppNavigation(
             DifferentAccountsScreen(
                 wallet = wallet,
                 secureStorage = secureStorage,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.Home) }
             )
         }
 
         composable(Screen.ScriptType.route) {
             ScriptTypeScreen(
                 wallet = wallet,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.Home) }
             )
         }
 
@@ -686,15 +589,9 @@ fun AppNavigation(
                 }
             )
         ) { backStackEntry ->
-            val address = backStackEntry.arguments?.getString("address")?.let {
-                java.net.URLDecoder.decode(it, "UTF-8")
-            }
+            val address = backStackEntry.decodedStringArg("address")
             SignMessageScreen(
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                },
+                onBack = { navController.navigateBackOr(Screen.Home) },
                 prefilledAddress = address
             )
         }
@@ -702,31 +599,19 @@ fun AppNavigation(
         composable(Screen.CheckAddress.route) {
             CheckAddressScreen(
                 wallet = wallet,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.Home) }
             )
         }
 
         composable(Screen.CompleteMnemonic.route) {
             CompleteMnemonicScreen(
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.Home) }
             )
         }
 
         composable(Screen.About.route) {
             AboutScreen(
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                },
+                onBack = { navController.navigateBackOr(Screen.Home) },
                 onLibUsed = {
                     navController.navigate(Screen.LibUsed.route)
                 }
@@ -735,22 +620,14 @@ fun AppNavigation(
 
         composable(Screen.LibUsed.route) {
             LibUsedScreen(
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.About.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.About) }
             )
         }
 
         composable(Screen.SettingsAppearance.route) {
             AppearanceSettingsScreen(
                 userPreferencesRepository = userPreferencesRepository,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.Home) }
             )
         }
 
@@ -760,11 +637,7 @@ fun AppNavigation(
                 secureStorage = secureStorage,
                 userPreferencesRepository = userPreferencesRepository,
                 activity = activity,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.Home) }
             )
         }
 
@@ -773,11 +646,7 @@ fun AppNavigation(
                 wallet = wallet,
                 secureStorage = secureStorage,
                 userPreferencesRepository = userPreferencesRepository,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                },
+                onBack = { navController.navigateBackOr(Screen.Home) },
                 onViewSavedKeys = {
                     navController.navigate(Screen.WalletKeys.route)
                 }
@@ -788,11 +657,7 @@ fun AppNavigation(
             WalletKeysScreen(
                 wallet = wallet,
                 secureStorage = secureStorage,
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.SettingsAdvanced.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.SettingsAdvanced) }
             )
         }
 
@@ -810,12 +675,20 @@ fun AppNavigation(
 
         composable(Screen.WhitePaper.route) {
             WhitePaperScreen(
-                onBack = {
-                    if (!navController.popBackStack()) {
-                        navController.navigate(Screen.Home.route)
-                    }
-                }
+                onBack = { navController.navigateBackOr(Screen.Home) }
             )
         }
     }
 }
+
+/** Pop the back stack, or navigate to [fallback] when there is nothing to pop. */
+private fun NavHostController.navigateBackOr(fallback: Screen) {
+    if (!popBackStack()) {
+        navigate(fallback.route)
+    }
+}
+
+private fun encodeNavArg(value: String): String = URLEncoder.encode(value, "UTF-8")
+
+private fun NavBackStackEntry.decodedStringArg(key: String): String? =
+    arguments?.getString(key)?.let { URLDecoder.decode(it, "UTF-8") }
