@@ -3,7 +3,7 @@
 # registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie. Builds secp256k1
 # from source (matching the fdroiddata recipe) so the released APK is
 # byte-identical to F-Droid's reproducible build.
-set -euxo pipefail
+set -euo pipefail
 export ANDROID_HOME=/opt/android-sdk
 
 # Host build tools the image lacks (build-android.sh calls bare cmake/make).
@@ -33,6 +33,12 @@ echo 'target_link_options( secp256k1-jni PRIVATE -Wl,--build-id=none )' \
 sed -i 's/mavenCentral()/mavenLocal(); mavenCentral()/' settings.gradle.kts
 
 # Sign with the release keystore (kept in /tmp, out of the mounted workspace).
-echo "$KEYSTORE_BASE64" | base64 -d > /tmp/release.keystore
+test -n "${KEYSTORE_BASE64:-}"
+test -n "${KEYSTORE_PASSWORD:-}"
+test -n "${KEY_ALIAS:-}"
+test -n "${KEY_PASSWORD:-}"
+trap 'rm -f /tmp/bitsawan-release.keystore' EXIT
+printf '%s' "$KEYSTORE_BASE64" | base64 -d > /tmp/bitsawan-release.keystore
+chmod 600 /tmp/bitsawan-release.keystore
 chmod +x ./gradlew  # gradlew is stored mode 644 in git; checkout lacks the exec bit
-KEYSTORE_PATH=/tmp/release.keystore ./gradlew assembleRelease
+KEYSTORE_PATH=/tmp/bitsawan-release.keystore ./gradlew assembleRelease

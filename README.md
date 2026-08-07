@@ -1,4 +1,13 @@
-# MetroVault
+# BitSawan
+
+> BitSawan is an independent GPLv3 fork of
+> [MetroVault](https://github.com/gorunjinian/MetroVault). It uses its own Android package
+> (`com.charcode.bitsawan`) and release-signing identity, so it can be installed alongside the
+> upstream app without replacing or accessing the upstream app's wallet storage.
+
+Signed BitSawan APKs are published on the
+[fork's Releases page](https://github.com/charcode/BitSawan/releases). Verify downloads against
+the signing details in [docs/BITSAWAN_RELEASES.md](docs/BITSAWAN_RELEASES.md) before installing.
 
 <p align="center">
   <img src="fastlane/metadata/android/en-US/images/featureGraphic.png" alt="MetroVault" width="100%">

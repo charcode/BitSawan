@@ -14,11 +14,13 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.gorunjinian.metrovault"
+        // Keep the Kotlin namespace inherited from MetroVault, but use an independent Android
+        // application ID so BitSawan can be installed without replacing another distribution.
+        applicationId = "com.charcode.bitsawan"
         minSdk = minSdkValue
         targetSdk = targetSdkValue
-        versionCode = 7
-        versionName = "3.9.0"
+        versionCode = 1
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -124,7 +126,7 @@ composeCompiler {
     reportsDestination = layout.buildDirectory.dir("compose_compiler")
 }
 
-base.archivesName.set("MetroVault-${android.defaultConfig.versionName}")
+base.archivesName.set("BitSawan-${android.defaultConfig.versionName}")
 
 dependencies {
     // Core Android

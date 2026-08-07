@@ -82,7 +82,7 @@ fun WalletDetailsScreen(
             title = { Text("Verify your multisig wallet") },
             text = {
                 Text(
-                    "MetroVault asks you to register multisig wallets before signing. Registering lets " +
+                    "BitSawan asks you to register multisig wallets before signing. Registering lets " +
                         "the device verify that change outputs really belong to your wallet, protecting you from " +
                         "a tampered descriptor or a malicious coordinator. Review the cosigners and confirm once."
                 )
