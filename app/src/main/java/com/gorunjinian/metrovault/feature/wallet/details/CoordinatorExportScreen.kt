@@ -1,7 +1,5 @@
 package com.gorunjinian.metrovault.feature.wallet.details
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -21,10 +19,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -34,12 +29,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.core.ui.components.TapToCopyQRCard
@@ -47,7 +40,6 @@ import com.gorunjinian.metrovault.data.model.CoordinatorExportData
 import com.gorunjinian.metrovault.data.model.CoordinatorExportResult
 import com.gorunjinian.metrovault.domain.Wallet
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,29 +51,6 @@ fun CoordinatorExportScreen(
     val result by produceState<CoordinatorExportResult?>(initialValue = null, key1 = wallet) {
         value = withContext(Dispatchers.Default) { wallet.getActiveCoordinatorExport() }
     }
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    var jsonToSave by remember { mutableStateOf<String?>(null) }
-    val createDocument = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        val json = jsonToSave
-        jsonToSave = null
-        if (uri != null && json != null) {
-            scope.launch {
-                val saved = withContext(Dispatchers.IO) {
-                    runCatching {
-                        context.contentResolver.openOutputStream(uri, "w")?.use { output ->
-                            output.write(json.toByteArray(Charsets.UTF_8))
-                        } ?: error("Could not open the selected document")
-                    }.isSuccess
-                }
-                snackbarHostState.showSnackbar(if (saved) "Nunchuk JSON saved" else "Could not save Nunchuk JSON")
-            }
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -93,8 +62,7 @@ fun CoordinatorExportScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { padding ->
         when (val current = result) {
             null -> Column(
@@ -105,11 +73,7 @@ fun CoordinatorExportScreen(
 
             is CoordinatorExportResult.Available -> CoordinatorExportContent(
                 data = current.data,
-                modifier = Modifier.padding(padding),
-                onSaveJson = {
-                    jsonToSave = current.data.nunchukJson
-                    createDocument.launch(current.data.suggestedFilename)
-                }
+                modifier = Modifier.padding(padding)
             )
 
             is CoordinatorExportResult.Unsupported -> CoordinatorExportUnavailable(
@@ -130,8 +94,7 @@ fun CoordinatorExportScreen(
 @Composable
 private fun CoordinatorExportContent(
     data: CoordinatorExportData,
-    modifier: Modifier = Modifier,
-    onSaveJson: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     var visibleQr by remember { mutableStateOf<CoordinatorQrFormat?>(null) }
     Column(
@@ -235,9 +198,6 @@ private fun CoordinatorExportContent(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        OutlinedButton(onClick = onSaveJson, modifier = Modifier.fillMaxWidth()) {
-            Text("Save Nunchuk JSON")
-        }
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -286,10 +246,8 @@ private fun CoordinatorExportPreview() {
                 descriptor = "wpkh([3ca02b0d/84h/0h/0h]xpub.../<0;1>/*)#example1",
                 firstReceiveAddress = "bc1qexample",
                 nunchukSignerRecord = "[3CA02B0D/84h/0h/0h]xpub6DBqChRqCJXqVDNaczA3SfbP2WodPn5HQAdH2BCZZMrA1SsTfc7NH5Q7zNAVJqSWj8fTpt2DefyFy9tyFGWuQseDLArFS95k7re8rGrtGeD/<0;1>/*",
-                nunchukJson = "{}",
-                suggestedFilename = "cold-savings-account-0-nunchuk.json"
-            ),
-            onSaveJson = {}
+                nunchukJson = "{}"
+            )
         )
     }
 }
