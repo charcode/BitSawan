@@ -4,6 +4,7 @@
 > [MetroVault](https://github.com/gorunjinian/MetroVault). It uses its own Android package
 > (`com.charcode.bitsawan`) and release-signing identity, so it can be installed alongside the
 > upstream app without replacing or accessing the upstream app's wallet storage.
+I created my own fork to roll out fixes faster when I need them to my own device. I try to push back as a PR everything to the original project! Big thank you to [gorunjinian](https://github.com/gorunjinian) for this amazing project that puts to good use many android phones sitting doing nothing!
 
 Signed BitSawan APKs are published on the
 [fork's Releases page](https://github.com/charcode/BitSawan/releases). Verify downloads against
