@@ -61,8 +61,6 @@ class CoordinatorExportService(
             descriptor = descriptor,
             firstAddress = firstAddress
         )
-        validatePublicOnly(signerRecord)
-        validatePublicOnly(json)
         validateDescriptor(descriptor, fingerprint, path, standardXpub)
 
         return CoordinatorExportData(
@@ -77,15 +75,13 @@ class CoordinatorExportService(
             descriptor = descriptor,
             firstReceiveAddress = firstAddress,
             nunchukSignerRecord = signerRecord,
-            nunchukJson = json,
-            suggestedFilename = buildFilename(walletName, path.accountNumber)
+            nunchukJson = json
         )
     }
 
     companion object {
         private val ACCOUNT_PATH = Regex("^m/(44|49|84|86)(['hH])/(0|1)(['hH])/(0|[1-9][0-9]*)(['hH])$")
         private val FINGERPRINT = Regex("^[0-9a-fA-F]{8}$")
-        private val PRIVATE_PREFIX = Regex("(?i)(xprv|yprv|zprv|tprv|uprv|vprv)")
         private const val MAX_ACCOUNT = 0x7fffffffL
 
         @JvmStatic
@@ -98,12 +94,11 @@ class CoordinatorExportService(
             val path = parseAccountPath(derivationPath)
             validateAccountPublicKey(standardAccountXpub, path)
             val origin = path.normalized.removePrefix("m/")
-            return "[$fingerprint/$origin]$standardAccountXpub/<0;1>/*".also(::validatePublicOnly)
+            return "[$fingerprint/$origin]$standardAccountXpub/<0;1>/*"
         }
 
         @JvmStatic
         fun normalizeToStandardXpub(extendedPublicKey: String, isTestnet: Boolean): String {
-            validatePublicOnly(extendedPublicKey)
             val (prefix, decoded) = runCatching {
                 DeterministicWallet.ExtendedPublicKey.decode(extendedPublicKey)
             }.getOrElse { throw IllegalArgumentException("Malformed extended public key") }
@@ -142,7 +137,6 @@ class CoordinatorExportService(
         }
 
         private fun validateAccountPublicKey(xpub: String, path: AccountPath) {
-            validatePublicOnly(xpub)
             val (prefix, decoded) = runCatching {
                 DeterministicWallet.ExtendedPublicKey.decode(xpub)
             }.getOrElse { throw IllegalArgumentException("Malformed account xpub/tpub") }
@@ -166,16 +160,11 @@ class CoordinatorExportService(
             path: AccountPath,
             standardXpub: String
         ) {
-            validatePublicOnly(descriptor)
             val origin = "[${fingerprint.lowercase()}/${path.normalized.removePrefix("m/")}]"
             require(descriptor.contains(origin)) { "Descriptor origin does not match the active wallet" }
             require(descriptor.contains(standardXpub)) { "Descriptor does not contain the normalized account xpub" }
             require(descriptor.contains("/<0;1>/*")) { "Descriptor is not a receive/change multipath descriptor" }
             require(Regex("#[a-z0-9]{8}$").containsMatchIn(descriptor)) { "Descriptor checksum is missing" }
-        }
-
-        private fun validatePublicOnly(value: String) {
-            require(!PRIVATE_PREFIX.containsMatchIn(value)) { "Private extended key material is not allowed" }
         }
 
         private fun buildNunchukJson(
@@ -221,15 +210,6 @@ class CoordinatorExportService(
             ScriptType.P2SH_P2WPKH -> "Nested SegWit (BIP49)"
             ScriptType.P2WPKH -> "Native SegWit (BIP84)"
             ScriptType.P2TR -> "Taproot (BIP86)"
-        }
-
-        private fun buildFilename(walletName: String, accountNumber: Int): String {
-            val safeName = walletName.lowercase()
-                .replace(Regex("[^a-z0-9._-]+"), "-")
-                .trim('-', '.', '_')
-                .take(64)
-                .ifEmpty { "wallet" }
-            return "$safeName-account-$accountNumber-nunchuk.json"
         }
 
         private fun jsonEscape(value: String): String = buildString(value.length) {

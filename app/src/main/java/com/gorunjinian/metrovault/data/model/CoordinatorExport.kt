@@ -13,8 +13,7 @@ data class CoordinatorExportData(
     val descriptor: String,
     val firstReceiveAddress: String,
     val nunchukSignerRecord: String,
-    val nunchukJson: String,
-    val suggestedFilename: String
+    val nunchukJson: String
 )
 
 sealed interface CoordinatorExportResult {
