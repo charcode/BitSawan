@@ -199,7 +199,7 @@ fun AppearanceSettingsScreen(
             SettingsInfoCard(
                 icon = R.drawable.ic_pallete,
                 title = "Appearance Settings",
-                description = "Customize the look and feel of MetroVault. Choose your preferred theme and configure quick shortcuts that appear on wallet cards for fast access to common actions."
+                description = "Customize the look and feel of BitSawan. Choose your preferred theme and configure quick shortcuts that appear on wallet cards for fast access to common actions."
             )
         }
     }
