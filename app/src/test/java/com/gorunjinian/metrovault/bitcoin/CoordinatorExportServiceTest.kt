@@ -6,7 +6,6 @@ import com.gorunjinian.metrovault.lib.bitcoin.DeterministicWallet
 import com.gorunjinian.metrovault.lib.bitcoin.MnemonicCode
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -94,15 +93,32 @@ class CoordinatorExportServiceTest {
     }
 
     @Test
-    fun qrAndJsonNeverContainPrivateExtendedKeyPrefixes() {
-        val privatePrefixes = listOf("xprv", "yprv", "zprv", "tprv", "uprv", "vprv")
-        listOf("m/44'/0'/0'", "m/49'/1'/2'", "m/84'/0'/4'", "m/86'/1'/5'").forEach { path ->
-            val exported = export(path)
-            privatePrefixes.forEach { prefix ->
-                assertFalse(exported.nunchukSignerRecord.contains(prefix, ignoreCase = true))
-                assertFalse(exported.nunchukJson.contains(prefix, ignoreCase = true))
-                assertFalse(exported.descriptor.contains(prefix, ignoreCase = true))
-            }
+    fun acceptsPublicKeyWhoseBase58BodyContainsPrivatePrefixText() {
+        // This is a valid depth-three xpub whose Base58 body contains "tpRv". Text scanning for
+        // private-key prefixes rejected it even though its decoded version bytes identify an xpub.
+        val xpub = "xpub6DBqChRqCJXqV7hiPpcSQ1fn988mqgmQtJ3qoWZSKBAigmcLKaCD2yQR8mAkifMAtT1JqtpRvSjBWBSMagz9ufv3YJEfpghjFFzidLRMcB8"
+
+        val signerRecord = CoordinatorExportService.buildNunchukSignerRecord(
+            "3CA02B0D",
+            "m/84'/0'/0'",
+            xpub
+        )
+
+        assertTrue(signerRecord.contains(xpub))
+    }
+
+    @Test
+    fun rejectsExtendedPrivateKeysByDecodedVersionBytes() {
+        val master = DeterministicWallet.generate(MnemonicCode.toSeed(mnemonic.split(" "), ""))
+        val accountXprv = master.derivePrivateKey("m/84'/0'/0'").encode(DeterministicWallet.xprv)
+
+        assertFails { CoordinatorExportService.normalizeToStandardXpub(accountXprv, isTestnet = false) }
+        assertFails {
+            CoordinatorExportService.buildNunchukSignerRecord(
+                "3CA02B0D",
+                "m/84'/0'/0'",
+                accountXprv
+            )
         }
     }
 
