@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
 import com.gorunjinian.metrovault.data.model.PsbtDetails
 
 /**
@@ -649,18 +651,10 @@ fun TransactionConfirmation(
 
         // Block signing for an unverified multisig wallet (authoritative check is in Wallet.signPsbt)
         signBlockedReason?.let { reason ->
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = reason,
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
+            InfoCard(
+                text = reason,
+                tone = InfoTone.Danger
+            )
             Spacer(modifier = Modifier.height(16.dp))
         }
 
@@ -694,18 +688,10 @@ fun TransactionConfirmation(
 
         if (errorMessage.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = errorMessage,
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
+            InfoCard(
+                text = errorMessage,
+                tone = InfoTone.Danger
+            )
         }
     }
 }

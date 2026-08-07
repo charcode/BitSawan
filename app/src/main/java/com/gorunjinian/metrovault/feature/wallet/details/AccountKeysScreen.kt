@@ -3,13 +3,13 @@ package com.gorunjinian.metrovault.feature.wallet.details
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.storage.SecureStorage
 import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
@@ -102,13 +102,9 @@ fun AccountKeysScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Account Keys") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+            MetroTopBar(
+                title = "Account Keys",
+                onBack = onBack,
                 actions = {
                     // Single-sig / Multisig Toggle in App Bar
                     SegmentedToggle(
@@ -120,10 +116,7 @@ fun AccountKeysScreen(
                         modifier = Modifier.padding(end = 8.dp),
                         compact = true
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                }
             )
         }
     ) { padding ->
@@ -225,37 +218,22 @@ fun AccountKeysScreen(
 
             // Security warning for private key
             if (showPrivate) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = if (exportForMultisig) {
-                            "This key can sign multisig transactions.\nNever share it!"
-                        } else {
-                            "This key can spend all funds in this account.\nNever share it!"
-                        },
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
+                InfoCard(
+                    text = if (exportForMultisig) {
+                        "This key can sign multisig transactions.\nNever share it!"
+                    } else {
+                        "This key can spend all funds in this account.\nNever share it!"
+                    },
+                    tone = InfoTone.Danger,
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
             } else if (exportForMultisig) {
                 // Info card for multisig public key
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Text(
-                        text = "Import this key into a multisig coordinator.",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
+                InfoCard(
+                    text = "Import this key into a multisig coordinator.",
+                    tone = InfoTone.Neutral,
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
             }
 
             // QR Code

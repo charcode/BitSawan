@@ -1,41 +1,36 @@
 package com.gorunjinian.metrovault.feature.wallet.details
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.graphics.Bitmap
 import android.widget.Toast
+import androidx.compose.ui.res.painterResource
+import com.gorunjinian.metrovault.R
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.qr.QRCodeUtils
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.storage.SecureStorage
+import com.gorunjinian.metrovault.core.ui.components.CopyableValueCard
 import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
+import com.gorunjinian.metrovault.core.util.SecurityUtils
 import com.gorunjinian.metrovault.domain.service.bitcoin.AddressService
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddressDetailScreen(
@@ -71,16 +66,9 @@ fun AddressDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Address Details") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+            MetroTopBar(
+                title = "Address Details",
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -104,10 +92,12 @@ fun AddressDetailScreen(
                             .then(
                                 if (tapToCopyEnabled) {
                                     Modifier.clickable {
-                                        // Copy address to clipboard
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        val clip = ClipData.newPlainText("Bitcoin Address", address)
-                                        clipboard.setPrimaryClip(clip)
+                                        SecurityUtils.copyToClipboard(
+                                            context = context,
+                                            label = "Bitcoin Address",
+                                            text = address,
+                                            sensitive = false
+                                        )
                                         Toast.makeText(context, "Address copied to clipboard", Toast.LENGTH_SHORT).show()
                                     }
                                 } else Modifier
@@ -278,66 +268,23 @@ fun AddressDetailScreen(
                     )
                     
                     // Public Key
-                    Column {
-                        Text(
-                            text = "Public Key",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Public Key", addressKeys!!.publicKey)
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, "Public key copied", Toast.LENGTH_SHORT).show()
-                                },
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer
-                            )
-                        ) {
-                            Text(
-                                text = addressKeys!!.publicKey,
-                                modifier = Modifier.padding(16.dp),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
-                    
-                    // Private Key (WIF)
-                    Column {
-                        Text(
-                            text = "Private Key",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Private Key", addressKeys!!.privateKeyWIF)
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, "Private key copied (auto-clears in 20s)", Toast.LENGTH_SHORT).show()
-                                },
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            )
-                        ) {
-                            Text(
-                                text = addressKeys!!.privateKeyWIF,
-                                modifier = Modifier.padding(16.dp),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                    
+                    CopyableValueCard(
+                        value = addressKeys!!.publicKey,
+                        clipboardLabel = "Public Key",
+                        label = "Public Key",
+                        sensitive = false,
+                        textStyle = MaterialTheme.typography.bodyLarge
+                    )
+
+                    // Private Key (WIF) — sensitive, so the clipboard entry self-clears
+                    CopyableValueCard(
+                        value = addressKeys!!.privateKeyWIF,
+                        clipboardLabel = "Private Key",
+                        label = "Private Key",
+                        sensitive = true,
+                        textStyle = MaterialTheme.typography.bodyLarge
+                    )
+
                     // Close button
                     TextButton(
                         onClick = { 

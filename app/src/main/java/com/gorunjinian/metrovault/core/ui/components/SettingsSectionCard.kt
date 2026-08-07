@@ -14,6 +14,9 @@ import androidx.compose.ui.unit.dp
 /**
  * A card component for navigating to settings sub-screens.
  * Matches the design pattern of WalletCard for consistent sizing.
+ *
+ * Structurally identical to [ActionCard]; the settings menus use roomier padding,
+ * a raised elevation and a slightly stronger container than the wallet menus.
  */
 @Composable
 fun SettingsSectionCard(
@@ -23,40 +26,18 @@ fun SettingsSectionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    ElevatedCard(
+    ActionCard(
+        icon = icon,
+        title = title,
+        description = description,
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+        modifier = modifier,
+        contentPadding = 20.dp,
         colors = CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = painterResource(icon),
-                contentDescription = null,
-                modifier = Modifier.size(40.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    )
 }
 
 /**

@@ -7,18 +7,16 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.storage.SecureStorage
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
 import com.gorunjinian.metrovault.data.model.WalletKeys
 import com.gorunjinian.metrovault.domain.Wallet
@@ -28,7 +26,6 @@ import kotlinx.coroutines.launch
  * Screen for viewing and managing all saved wallet keys.
  * Allows renaming, viewing details (with password confirmation), and deleting keys.
  */
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun WalletKeysScreen(
@@ -79,19 +76,15 @@ fun WalletKeysScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Saved Keys") },
-                navigationIcon = {
-                    IconButton(onClick = {
+            MetroTopBar(
+                title = "Saved Keys",
+                onBack = {
                         if (isEditMode) {
                             isEditMode = false
                         } else {
                             onBack()
                         }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                },
+                    },
                 actions = {
                     if (keys.isNotEmpty()) {
                         IconButton(onClick = { isEditMode = !isEditMode }) {
@@ -104,10 +97,7 @@ fun WalletKeysScreen(
                             )
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                }
             )
         }
     ) { padding ->

@@ -137,8 +137,6 @@ dependencies {
     // Material 3
     implementation(libs.material)
 
-    implementation(libs.compose.material.icons.extended)
-
     // Reorderable drag-and-drop for LazyColumn
     implementation(libs.reorderable)
 

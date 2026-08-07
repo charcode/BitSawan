@@ -5,13 +5,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -22,6 +19,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gorunjinian.metrovault.core.qr.SeedQRUtils
 import com.gorunjinian.metrovault.core.qr.configureForQRScanning
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.journeyapps.barcodescanner.CompoundBarcodeView
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -61,25 +61,14 @@ fun ImportStatelessScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        when (uiState.currentStep) {
-                            1 -> "Stateless Import"
-                            2 -> "Scan SeedQR"
-                            3 -> "Passphrase (Optional)"
-                            else -> "Stateless Import"
-                        }
-                    )
+            MetroTopBar(
+                title = when (uiState.currentStep) {
+                    1 -> "Stateless Import"
+                    2 -> "Scan SeedQR"
+                    3 -> "Passphrase (Optional)"
+                    else -> "Stateless Import"
                 },
-                navigationIcon = {
-                    IconButton(onClick = { viewModel.goToPreviousStep() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                onBack = { viewModel.goToPreviousStep() }
             )
         }
     ) { padding ->
@@ -222,19 +211,11 @@ private fun ScannedSeedSummaryCard(
 
 @Composable
 private fun StatelessWipeWarningCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-        )
-    ) {
-        Text(
-            text = "This wallet will be wiped when you lock or leave the app.",
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onTertiaryContainer
-        )
-    }
+    InfoCard(
+        text = "This wallet will be wiped when you lock or leave the app.",
+        tone = InfoTone.Warning,
+        textStyle = MaterialTheme.typography.bodySmall
+    )
 }
 
 // ========== Step 2: Scan SeedQR ==========
@@ -377,18 +358,10 @@ private fun Step2ScanSeedQR(
             }
 
             if (errorMessage.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = errorMessage,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
+                InfoCard(
+                    text = errorMessage,
+                    tone = InfoTone.Danger
+                )
             }
         }
     }

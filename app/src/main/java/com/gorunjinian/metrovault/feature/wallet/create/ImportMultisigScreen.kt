@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +21,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.qr.configureForQRScanning
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.journeyapps.barcodescanner.CompoundBarcodeView
 
 /**
@@ -101,13 +102,10 @@ fun ImportMultisigScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Import Multisig Wallet") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            MetroTopBar(
+                title = "Import Multisig Wallet",
+                onBack = onBack,
+                colors = TopAppBarDefaults.topAppBarColors()
             )
         }
     ) { padding ->
@@ -604,20 +602,12 @@ private fun ErrorScreen(
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer
-            )
-        ) {
-            Text(
-                text = errorMessage,
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                textAlign = TextAlign.Center
-            )
-        }
+        InfoCard(
+            text = errorMessage,
+            tone = InfoTone.Danger,
+            textStyle = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
         
         Spacer(modifier = Modifier.height(24.dp))
         

@@ -5,8 +5,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +14,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
 import com.gorunjinian.metrovault.core.qr.QRCodeUtils
 import com.gorunjinian.metrovault.core.qr.QRModuleData
@@ -119,16 +120,9 @@ fun SeedQRContent(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(title) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+            MetroTopBar(
+                title = title,
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -159,19 +153,11 @@ fun SeedQRContent(
             }
 
             // Security warning card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Text(
-                    text = warningText,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
+            InfoCard(
+                text = warningText,
+                tone = InfoTone.Danger,
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
 
             // QR Code display
             Box(
@@ -226,22 +212,15 @@ fun SeedQRContent(
             }
 
             // Info card with format-specific text
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Text(
-                    text = when (selectedFormat) {
-                        1 -> "CompactSeedQR uses binary encoding for a smaller QR code. Requires a compatible reader."
-                        2 -> "Generic format contains the seed words separated by spaces. Compatible with most wallets."
-                        else -> "Standard SeedQR encodes word indices as digits. Can be decoded with any QR reader."
-                    },
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+            InfoCard(
+                text = when (selectedFormat) {
+                    1 -> "CompactSeedQR uses binary encoding for a smaller QR code. Requires a compatible reader."
+                    2 -> "Generic format contains the seed words separated by spaces. Compatible with most wallets."
+                    else -> "Standard SeedQR encodes word indices as digits. Can be decoded with any QR reader."
+                },
+                tone = InfoTone.Neutral,
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
 
             footer()
         }

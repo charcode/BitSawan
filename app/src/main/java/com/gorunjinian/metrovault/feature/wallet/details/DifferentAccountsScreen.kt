@@ -9,28 +9,25 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.storage.SecureStorage
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
 import com.gorunjinian.metrovault.core.ui.dialogs.RenameAccountDialog
 import com.gorunjinian.metrovault.data.model.DerivationPaths
 import com.gorunjinian.metrovault.domain.Wallet
 import kotlinx.coroutines.launch
 
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DifferentAccountsScreen(
@@ -86,21 +83,15 @@ fun DifferentAccountsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Different Accounts") },
-                navigationIcon = {
-                    IconButton(onClick = {
+            MetroTopBar(
+                title = "Different Accounts",
+                onBack = {
                         if (isEditMode) {
                             isEditMode = false
                         } else {
                             onBack()
                         }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack,
-                            "Back"
-                        )
-                    }
-                },
+                    },
                 actions = {
                     IconButton(onClick = { isEditMode = !isEditMode }) {
                         Icon(
@@ -111,10 +102,7 @@ fun DifferentAccountsScreen(
                             modifier = if (isEditMode) Modifier.size(28.dp) else Modifier
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                }
             )
         },
         floatingActionButton = {

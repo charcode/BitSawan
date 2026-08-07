@@ -3,13 +3,13 @@ package com.gorunjinian.metrovault.feature.wallet.details
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
 import com.gorunjinian.metrovault.core.ui.components.TapToCopyQRCard
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
@@ -66,14 +66,9 @@ fun SilentPaymentExportScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Silent Payments") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            MetroTopBar(
+                title = "Silent Payments",
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -149,19 +144,12 @@ fun SilentPaymentExportScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Text(
-                    text = "Import this into a watching wallet to detect incoming silent payments. " +
-                        "Anyone with it can see every payment you receive.Share only with watching wallets you trust.",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+            InfoCard(
+                text = "Import this into a watching wallet to detect incoming silent payments. " +
+                    "Anyone with it can see every payment you receive.Share only with watching wallets you trust.",
+                tone = InfoTone.Neutral,
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
 
             TapToCopyQRCard(
                 data = displayData,

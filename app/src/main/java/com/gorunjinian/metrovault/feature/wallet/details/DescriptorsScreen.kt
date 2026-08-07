@@ -3,13 +3,13 @@ package com.gorunjinian.metrovault.feature.wallet.details
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.storage.SecureStorage
 import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
@@ -89,13 +89,9 @@ fun DescriptorsScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Descriptors") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+            MetroTopBar(
+                title = "Descriptors",
+                onBack = onBack,
                 actions = {
                     // Single-sig / Multisig Toggle in App Bar
                     SegmentedToggle(
@@ -107,10 +103,7 @@ fun DescriptorsScreen(
                         modifier = Modifier.padding(end = 8.dp),
                         compact = true
                     )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                }
             )
         }
     ) { padding ->
@@ -212,40 +205,25 @@ fun DescriptorsScreen(
 
             // Info/Warning card
             if (showPrivate) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = if (exportForMultisig) {
-                            "This contains private keys.\nUse only for watch+sign multisig wallets."
-                        } else {
-                            "This descriptor contains private keys.\nAnyone with it can spend your UTXOs"
-                        },
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
+                InfoCard(
+                    text = if (exportForMultisig) {
+                        "This contains private keys.\nUse only for watch+sign multisig wallets."
+                    } else {
+                        "This descriptor contains private keys.\nAnyone with it can spend your UTXOs"
+                    },
+                    tone = InfoTone.Danger,
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
             } else {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Text(
-                        text = if (exportForMultisig) {
-                            "Import this descriptor into a multisig coordinator."
-                        } else {
-                            "Import this to an online wallet as a watch-only wallet."
-                        },
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
+                InfoCard(
+                    text = if (exportForMultisig) {
+                        "Import this descriptor into a multisig coordinator."
+                    } else {
+                        "Import this to an online wallet as a watch-only wallet."
+                    },
+                    tone = InfoTone.Neutral,
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
             }
 
             // QR Code

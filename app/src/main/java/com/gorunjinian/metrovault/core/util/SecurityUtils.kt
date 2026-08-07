@@ -79,10 +79,49 @@ object SecurityUtils {
         }
     }
 
+    /** Default window before a sensitive clipboard entry is wiped. */
+    const val SENSITIVE_CLIPBOARD_CLEAR_MS = 20_000L
+
+    /**
+     * Single entry point for every clipboard write in the app.
+     *
+     * Secrets (private keys, derived passwords, seed material) must pass
+     * `sensitive = true` so the entry is wiped after [SENSITIVE_CLIPBOARD_CLEAR_MS];
+     * public values (addresses, xpubs, signatures) pass `false` and stay until the
+     * user replaces them.
+     *
+     * @param context Any context; the application context is used for the delayed clear
+     * @param label Label for the clipboard data
+     * @param text Text to copy
+     * @param sensitive Whether the value must be auto-cleared
+     * @param delayMs Clear delay, only honoured when [sensitive] is true
+     */
+    fun copyToClipboard(
+        context: Context,
+        label: String,
+        text: String,
+        sensitive: Boolean,
+        delayMs: Long = SENSITIVE_CLIPBOARD_CLEAR_MS
+    ) {
+        if (sensitive) {
+            copyToClipboardWithAutoClear(context, label, text, delayMs)
+            return
+        }
+        try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            clipboard?.setPrimaryClip(ClipData.newPlainText(label, text))
+        } catch (e: Exception) {
+            AppLog.e(TAG, e) { "Failed to copy to clipboard: ${e.message}" }
+        }
+    }
+
     /**
      * Copies text to clipboard and automatically clears it after a delay.
      * Only clears if the clipboard still contains the same content.
-     * 
+     *
+     * Prefer [copyToClipboard] with `sensitive = true` at call sites; this stays
+     * public for the QR card, which always deals with exportable secrets.
+     *
      * @param context Application context
      * @param label Label for the clipboard data
      * @param text Text to copy
@@ -92,7 +131,7 @@ object SecurityUtils {
         context: Context,
         label: String,
         text: String,
-        delayMs: Long = 20_000
+        delayMs: Long = SENSITIVE_CLIPBOARD_CLEAR_MS
     ) {
         try {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager

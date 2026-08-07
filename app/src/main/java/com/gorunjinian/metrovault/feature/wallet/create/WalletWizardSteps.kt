@@ -18,6 +18,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
 import com.gorunjinian.metrovault.core.ui.components.SecureOutlinedTextField
 import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
 import com.gorunjinian.metrovault.data.model.DerivationPaths
@@ -429,18 +431,11 @@ internal fun Bip39PassphraseStep(
                 )
 
                 if (showWriteDownReminder && bip39Passphrase.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    ) {
-                        Text(
-                            text = "Write down your passphrase: \"$bip39Passphrase\"",
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+                    InfoCard(
+                        text = "Write down your passphrase: \"$bip39Passphrase\"",
+                        tone = InfoTone.Info,
+                        textStyle = MaterialTheme.typography.bodyMedium
+                    )
                 }
 
                 // Real-time fingerprint preview
@@ -514,18 +509,10 @@ internal fun Bip39PassphraseStep(
             }
 
             if (errorMessage.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = errorMessage,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
+                InfoCard(
+                    text = errorMessage,
+                    tone = InfoTone.Danger
+                )
             }
         }
 
