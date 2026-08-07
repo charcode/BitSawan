@@ -133,7 +133,7 @@ private fun CoordinatorExportContent(
     modifier: Modifier = Modifier,
     onSaveJson: () -> Unit
 ) {
-    var showQr by remember { mutableStateOf(false) }
+    var visibleQr by remember { mutableStateOf<CoordinatorQrFormat?>(null) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -185,10 +185,15 @@ private fun CoordinatorExportContent(
             )
         }
 
-        Button(onClick = { showQr = !showQr }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (showQr) "Hide Nunchuk QR" else "Show Nunchuk QR")
+        Button(
+            onClick = {
+                visibleQr = if (visibleQr == CoordinatorQrFormat.NUNCHUK) null else CoordinatorQrFormat.NUNCHUK
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (visibleQr == CoordinatorQrFormat.NUNCHUK) "Hide Nunchuk QR" else "Show Nunchuk QR")
         }
-        if (showQr) {
+        if (visibleQr == CoordinatorQrFormat.NUNCHUK) {
             TapToCopyQRCard(
                 data = data.nunchukSignerRecord,
                 clipboardLabel = "Nunchuk public signer record",
@@ -197,11 +202,49 @@ private fun CoordinatorExportContent(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+
+        Button(
+            onClick = {
+                visibleQr = if (visibleQr == CoordinatorQrFormat.SPARROW_COLDCARD) {
+                    null
+                } else {
+                    CoordinatorQrFormat.SPARROW_COLDCARD
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                if (visibleQr == CoordinatorQrFormat.SPARROW_COLDCARD) {
+                    "Hide Sparrow / Coldcard QR"
+                } else {
+                    "Show Sparrow / Coldcard QR"
+                }
+            )
+        }
+        if (visibleQr == CoordinatorQrFormat.SPARROW_COLDCARD) {
+            Text(
+                "In Sparrow, choose Airgapped Hardware Wallet, then scan this QR using the Coldcard option.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TapToCopyQRCard(
+                data = data.nunchukJson,
+                clipboardLabel = "Sparrow Coldcard public wallet JSON",
+                tapToCopyEnabled = true,
+                contentDescription = "Sparrow Coldcard public wallet QR",
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         OutlinedButton(onClick = onSaveJson, modifier = Modifier.fillMaxWidth()) {
             Text("Save Nunchuk JSON")
         }
         Spacer(Modifier.height(24.dp))
     }
+}
+
+private enum class CoordinatorQrFormat {
+    NUNCHUK,
+    SPARROW_COLDCARD
 }
 
 @Composable
