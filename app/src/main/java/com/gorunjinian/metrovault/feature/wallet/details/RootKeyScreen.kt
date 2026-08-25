@@ -3,13 +3,13 @@ package com.gorunjinian.metrovault.feature.wallet.details
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.core.ui.components.TapToCopyQRCard
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
@@ -33,16 +33,9 @@ fun RootKeyScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("BIP32 Root Key") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+            MetroTopBar(
+                title = "BIP32 Root Key",
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -89,18 +82,12 @@ fun RootKeyScreen(
             )
 
             // Key text display
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                )
-            ) {
-                Text(
-                    text = rootKey,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+            InfoCard(
+                text = rootKey,
+                tone = InfoTone.Danger,
+                textStyle = MaterialTheme.typography.bodySmall,
+                containerAlpha = 0.3f
+            )
             
             // Hide button
             Button(

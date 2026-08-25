@@ -3,17 +3,14 @@ package com.gorunjinian.metrovault.feature.wallet.details
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
+import com.gorunjinian.metrovault.core.ui.components.ActionCard
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.storage.SecureStorage
 import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
@@ -35,7 +32,6 @@ private enum class SensitiveViewTarget {
  * 3. View BIP32 Root Key - Requires password confirmation, then navigates to RootKeyScreen
  * 4. View Seed Phrase - Requires password confirmation, then navigates to SeedPhraseScreen
  */
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExportOptionsScreen(
@@ -58,6 +54,9 @@ fun ExportOptionsScreen(
     val isSpFlaggedWallet = remember { wallet.isActiveSilentPayment() }
     val canDeriveSilentPayments = remember { wallet.canExportSilentPaymentForActiveWallet() }
     val canExportSilentPayments = canDeriveSilentPayments && (silentPaymentsEnabled || isSpFlaggedWallet)
+    // Coordinator export is single-sig only. Hide the card rather than letting the user tap
+    // through to an "Unsupported wallet" screen, matching how the cards below are gated.
+    val canExportToCoordinator = remember { !wallet.isActiveMultisig() && !wallet.isActiveSilentPayment() }
     // Password confirmation state
     var showPasswordDialog by remember { mutableStateOf(false) }
     
@@ -70,16 +69,9 @@ fun ExportOptionsScreen(
     
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Export") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+            MetroTopBar(
+                title = "Export",
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -98,47 +90,13 @@ fun ExportOptionsScreen(
                 style = MaterialTheme.typography.headlineSmall
             )
 
-            Text(
-                text = "Export to another wallet",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            ElevatedCard(
-                onClick = onExportCoordinator,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_qr_code_scanner),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Export to wallet coordinator", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Import this wallet into Nunchuk or another watch-only coordinator",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            shape = MaterialTheme.shapes.small
-                        ) {
-                            Text(
-                                "Public data only — cannot spend funds",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    }
-                }
+            if (canExportToCoordinator) {
+                ActionCard(
+                    icon = R.drawable.ic_qr_code_scanner,
+                    title = "Export to Wallet Coordinator",
+                    description = "formats for Nunchuk or other watch-only coordinators",
+                    onClick = onExportCoordinator
+                )
             }
 
             // Cards 1 & 2: View Account Extended Keys and View Output Descriptors.
@@ -146,163 +104,54 @@ fun ExportOptionsScreen(
             // descriptor; the SP-equivalent export is the spscan/descriptor inside the Silent
             // Payments card. Root Key and Seed Phrase still expose the underlying master.
             if (!isSpFlaggedWallet) {
-                ElevatedCard(
-                    onClick = onViewAccountKeys,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_key),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column {
-                            Text(
-                                text = "Advanced: Account Extended Keys",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "Inspect raw public keys or password-protected private keys",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                ActionCard(
+                    icon = R.drawable.ic_key,
+                    title = "View Account Extended Keys",
+                    description = "Extended public & private keys",
+                    onClick = onViewAccountKeys
+                )
 
-                ElevatedCard(
-                    onClick = onViewDescriptors,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_desciption),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column {
-                            Text(
-                                text = "Advanced: Output Descriptors",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "Inspect watch-only or password-protected spending descriptors",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                ActionCard(
+                    icon = R.drawable.ic_desciption,
+                    title = "View Output Descriptors",
+                    description = "Public & spending descriptors",
+                    onClick = onViewDescriptors
+                )
             }
 
             // Card: Silent Payments (sp1q… + gated spscan…) — single-sig seed-based wallets only
             if (canExportSilentPayments) {
-                ElevatedCard(
-                    onClick = onViewSilentPayments,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_qr_code_scanner),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column {
-                            Text(
-                                text = "Silent Payments",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "SP Scan key & descriptor for Silent Payments",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                ActionCard(
+                    icon = R.drawable.ic_person_shield,
+                    title = "Silent Payments",
+                    description = "SP Scan key & descriptor for Silent Payments",
+                    onClick = onViewSilentPayments
+                )
             }
 
-            Text(
-                text = "Sensitive recovery material",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.error
-            )
+            // Separates the exports above from the recovery material below
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // Card 3: View Root Key
-            ElevatedCard(
+            ActionCard(
+                icon = R.drawable.ic_root,
+                title = "View BIP32 Root Key",
+                description = "Show your wallet's main BIP32 root key",
                 onClick = { showRootKeyWarningDialog = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_root),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                    Column {
-                        Text(
-                            text = "View BIP32 Root Key",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = "Show your wallet's main BIP32 root key",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }
+                iconTint = MaterialTheme.colorScheme.error,
+                descriptionColor = MaterialTheme.colorScheme.error
+            )
 
             // Card 4: View Seed Phrase (hidden for stateless wallets)
             if (!isStatelessWallet) {
-                ElevatedCard(
+                ActionCard(
+                    icon = R.drawable.ic_privacy_tip,
+                    title = "View Seed Phrase",
+                    description = "Show your recovery seed phrase or SeedQR",
                     onClick = { showSeedWarningDialog = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_privacy_tip),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Column {
-                            Text(
-                                text = "View Seed Phrase",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "Show your recovery seed phrase or SeedQR",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                }
+                    iconTint = MaterialTheme.colorScheme.error,
+                    descriptionColor = MaterialTheme.colorScheme.error
+                )
             }
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -392,54 +241,5 @@ fun ExportOptionsScreen(
                 pendingTarget = null
             }
         )
-    }
-}
-
-@Preview(showBackground = true, widthDp = 412, heightDp = 915)
-@Composable
-private fun ExportOptionsPreview() {
-    MaterialTheme {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text("Export Options", style = MaterialTheme.typography.headlineSmall)
-            Text("Export to another wallet", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            PreviewExportCard(
-                "Export to wallet coordinator",
-                "Import this wallet into Nunchuk or another watch-only coordinator",
-                "Public data only — cannot spend funds"
-            )
-            PreviewExportCard(
-                "Advanced: Account Extended Keys",
-                "Inspect raw public keys or password-protected private keys"
-            )
-            PreviewExportCard(
-                "Advanced: Output Descriptors",
-                "Inspect watch-only or password-protected spending descriptors"
-            )
-            Text("Sensitive recovery material", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
-            PreviewExportCard("View BIP32 Root Key", "Show your wallet's main BIP32 root key")
-            PreviewExportCard("View Seed Phrase", "Show your recovery seed phrase or SeedQR")
-        }
-    }
-}
-
-@Composable
-private fun PreviewExportCard(title: String, description: String, badge: String? = null) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            badge?.let {
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(it, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
     }
 }

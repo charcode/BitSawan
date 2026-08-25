@@ -7,16 +7,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.BuildConfig
 import com.gorunjinian.metrovault.R
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,16 +30,9 @@ fun AboutScreen(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("About") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+            MetroTopBar(
+                title = "About",
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -367,7 +357,7 @@ fun AboutScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            painter = painterResource(R.drawable.ic_chevron_right),
                             contentDescription = "View libraries",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )

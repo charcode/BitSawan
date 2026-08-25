@@ -4,10 +4,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +14,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
 import com.gorunjinian.metrovault.domain.service.multisig.BSMS
 import com.gorunjinian.metrovault.core.qr.AnimatedQRResult
@@ -98,16 +95,9 @@ fun ExportMultiSigScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Export Descriptor") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+            MetroTopBar(
+                title = "Export Descriptor",
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -202,7 +192,7 @@ fun ExportMultiSigScreen(
                         enabled = isPaused
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            painter = painterResource(R.drawable.ic_chevron_left),
                             contentDescription = "Previous Frame",
                             modifier = Modifier.size(32.dp),
                             tint = if (isPaused) MaterialTheme.colorScheme.primary 
@@ -237,7 +227,7 @@ fun ExportMultiSigScreen(
                         enabled = isPaused
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            painter = painterResource(R.drawable.ic_chevron_right),
                             contentDescription = "Next Frame",
                             modifier = Modifier.size(32.dp),
                             tint = if (isPaused) MaterialTheme.colorScheme.primary 

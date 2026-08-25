@@ -6,18 +6,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
+import com.gorunjinian.metrovault.core.ui.components.ActionCard
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.core.storage.SecureStorage
 import com.gorunjinian.metrovault.core.ui.dialogs.DeleteWalletDialogs
@@ -26,7 +25,6 @@ import com.gorunjinian.metrovault.data.model.MultisigScriptType
 import com.gorunjinian.metrovault.data.model.WalletMetadata
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WalletDetailsScreen(
@@ -114,13 +112,9 @@ fun WalletDetailsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(wallet.getActiveWalletName()) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+            MetroTopBar(
+                title = wallet.getActiveWalletName(),
+                onBack = onBack,
                 actions = {
                     // Testnet badge
                     if (isTestnet) {
@@ -199,10 +193,7 @@ fun WalletDetailsScreen(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                }
             )
         }
     ) { padding ->
@@ -422,128 +413,40 @@ fun WalletDetailsScreen(
             )
 
             // View Addresses
-            ElevatedCard(
-                onClick = onViewAddresses,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_addresses),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Column {
-                        Text(
-                            text = if (isSilentPayment) "View SP Address" else "View Addresses",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = if (isSilentPayment) "Show your silent-payment address"
-                            else "Generate and view public addresses",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+            ActionCard(
+                icon = R.drawable.ic_addresses,
+                title = if (isSilentPayment) "View SP Address" else "View Addresses",
+                description = if (isSilentPayment) "Show your silent-payment address"
+                else "Generate and view public addresses",
+                onClick = onViewAddresses
+            )
 
             // Sign PSBT
-            ElevatedCard(
-                onClick = onScanPSBT,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_qr_code_scanner),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Column {
-                        Text(
-                            text = "Sign PSBT",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = "Scan and sign a transaction",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+            ActionCard(
+                icon = R.drawable.ic_qr_code_scanner,
+                title = "Sign PSBT",
+                description = "Scan and sign a transaction",
+                onClick = onScanPSBT
+            )
 
             // Check Address (not for SP wallets — no enumerable address tree to check against)
             if (!isSilentPayment) {
-                ElevatedCard(
-                    onClick = onCheckAddress,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_search),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column {
-                            Text(
-                                text = "Check Address",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "Verify if an address belongs to this wallet",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                ActionCard(
+                    icon = R.drawable.ic_search,
+                    title = "Check Address",
+                    description = "Verify if an address belongs to this wallet",
+                    onClick = onCheckAddress
+                )
             }
 
             // Export Options (moved up from Advanced)
-            ElevatedCard(
-                onClick = { if (isMultisig) onExportMultiSig() else onExport() },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_upload),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Column {
-                        Text(
-                            text = "Export",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = if (isMultisig) "Export multisig wallet descriptor"
-                                   else "Export keys, descriptors or seed phrase",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+            ActionCard(
+                icon = R.drawable.ic_upload,
+                title = "Export",
+                description = if (isMultisig) "Export multisig wallet descriptor"
+                       else "Export keys, descriptors or seed phrase",
+                onClick = { if (isMultisig) onExportMultiSig() else onExport() }
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -556,98 +459,32 @@ fun WalletDetailsScreen(
             // BIP-322 protocol: verification works on-device, and signing goes through
             // message-signing PSBT QR .
             if (!isMultisig && !isStatelessWallet) {
-                ElevatedCard(
-                    onClick = onSignMessage,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_signature),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column {
-                            Text(
-                                text = "Sign/Verify Message",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "Sign messages or verify signatures",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                ActionCard(
+                    icon = R.drawable.ic_signature,
+                    title = "Sign/Verify Message",
+                    description = "Sign messages or verify signatures",
+                    onClick = onSignMessage
+                )
             }
 
             // BIP-85 Derivation (only if enabled in settings and not multisig/stateless)
             if (bip85Enabled && !isMultisig && !isStatelessWallet) {
-                ElevatedCard(
-                    onClick = onBIP85,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_account_tree),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column {
-                            Text(
-                                text = "BIP-85 Derivation",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "Derive child seed phrases or passwords",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                ActionCard(
+                    icon = R.drawable.ic_account_tree,
+                    title = "BIP-85 Derivation",
+                    description = "Derive child seed phrases or passwords",
+                    onClick = onBIP85
+                )
             }
 
             // Different Accounts (only if enabled in settings and not multisig/stateless)
             if (differentAccountsEnabled && !isMultisig && !isStatelessWallet) {
-                ElevatedCard(
-                    onClick = onDifferentAccounts,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_accounts),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column {
-                            Text(
-                                text = "Different Accounts",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "Manage BIP44 account numbers (current: $activeAccountNumber)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                ActionCard(
+                    icon = R.drawable.ic_accounts,
+                    title = "Different Accounts",
+                    description = "Manage BIP44 account numbers (current: $activeAccountNumber)",
+                    onClick = onDifferentAccounts
+                )
             }
 
             // Change Script Type (single-sig only; hidden for multisig, stateless, and SP).
@@ -664,66 +501,23 @@ fun WalletDetailsScreen(
                     com.gorunjinian.metrovault.data.model.ScriptType.P2PKH ->
                         if (isTestnet) "Currently: Legacy (m/n…)" else "Currently: Legacy (1…)"
                 }
-                ElevatedCard(
-                    onClick = onChangeScriptType,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_tune),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column {
-                            Text(
-                                text = "Change Script Type",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = currentSubtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                ActionCard(
+                    icon = R.drawable.ic_tune,
+                    title = "Change Script Type",
+                    description = currentSubtitle,
+                    onClick = onChangeScriptType
+                )
             }
 
             // Delete Wallet (not for stateless wallets - nothing to delete)
             if (!isStatelessWallet) {
-                ElevatedCard(
+                ActionCard(
+                    icon = R.drawable.ic_delete,
+                    title = "Delete Wallet",
+                    description = "Permanently remove this wallet",
                     onClick = { walletToDelete = activeWalletMetadata },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_delete),
-                            contentDescription = null,
-                            modifier = Modifier.size(40.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Column {
-                            Text(
-                                text = "Delete Wallet",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "Permanently remove this wallet",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                    iconTint = MaterialTheme.colorScheme.error
+                )
             }
         }
     }

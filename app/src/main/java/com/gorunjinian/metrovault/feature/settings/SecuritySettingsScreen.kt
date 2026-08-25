@@ -3,20 +3,18 @@ package com.gorunjinian.metrovault.feature.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import com.gorunjinian.metrovault.R
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.crypto.BiometricAuthManager
 import com.gorunjinian.metrovault.core.crypto.BiometricPasswordManager
 import com.gorunjinian.metrovault.core.storage.SecureStorage
@@ -28,7 +26,6 @@ import com.gorunjinian.metrovault.core.ui.dialogs.ChangePasswordDialog
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 import com.gorunjinian.metrovault.domain.Wallet
 
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SecuritySettingsScreen(
@@ -87,16 +84,9 @@ fun SecuritySettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Security") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+            MetroTopBar(
+                title = "Security",
+                onBack = onBack
             )
         }
     ) { padding ->

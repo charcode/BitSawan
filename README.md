@@ -28,6 +28,7 @@ the signing details in [docs/BITSAWAN_RELEASES.md](docs/BITSAWAN_RELEASES.md) be
 
 <p align="center">
   <a href="https://f-droid.org/packages/com.gorunjinian.metrovault/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80"></a>
+  <a href="https://www.openapk.net/metrovault/com.gorunjinian.metrovault/"><img src="https://www.openapk.net/images/openapk-badge.png" alt="Get it on OpenAPK" height="80"></a>
   <a href="https://github.com/gorunjinian/MetroVault/releases"><img src="https://raw.githubusercontent.com/machiav3lli/oandbackupx/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="80"></a>
 </p>
 
@@ -77,7 +78,7 @@ The primary goal of MetroVault is to provide a completely **offline** environmen
 - **Change Script Type**: Switch a single-sig wallet between Taproot / Native SegWit / Nested SegWit / Legacy without re-importing the seed
 - **Passphrase Support**: Optional BIP-39 passphrase with choice to save locally or keep in session memory only
 - **Testnet4 Support**: Import or create Testnet wallet for testing and development
-- **Custom Entropy**: Add your own randomness via dice rolls or coin flips
+- **Custom Entropy**: Capture coin tosses, dice rolls, or playing-card draws; use the recommended device-mixed mode or an entropy-threshold-gated reproducible physical-only mode
 - **Mnemonic Tools**: Built-in checksum calculator and validator
 - **BIP-85 Derivation**: Generate child seeds (12/24 words) and secure passwords from your master seed
 - **XPRIV Export**: Export wallet's extended private key (if needed)
@@ -167,6 +168,15 @@ git clone https://github.com/gorunjinian/MetroVault.git
 <a href="https://github.com/gorunjinian/MetroVault/releases"><img src="https://raw.githubusercontent.com/machiav3lli/oandbackupx/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" alt="Get it on GitHub" height="70"></a>
 
 Check the [Releases](https://github.com/gorunjinian/MetroVault/releases) page for pre-built, signed APKs.
+
+### Option 4: Download APK from OpenAPK
+
+<a href="https://www.openapk.net/metrovault/com.gorunjinian.metrovault/"><img src="https://www.openapk.net/images/openapk-badge.png" alt="Get it on OpenAPK" height="70"></a>
+
+[OpenAPK](https://www.openapk.net/metrovault/com.gorunjinian.metrovault/) mirrors the release APK. Before installing, verify it matches the official build:
+
+- **Package ID:** `com.gorunjinian.metrovault`
+- **Signing certificate SHA-256:** `1245554ceb17cea21e9912af7bf60d38d716f5884d4b3664e5338462cc76fd03`
 
 > ⚠️ **Security Note:** For production use, always build from source and install on a factory-reset device that remains permanently offline.
 

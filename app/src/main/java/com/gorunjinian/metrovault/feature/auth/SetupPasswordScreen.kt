@@ -27,7 +27,6 @@ import com.gorunjinian.metrovault.core.ui.components.SecurePasswordTextField
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
-@Suppress("AssignedValueIsNeverRead")
 @Composable
 fun SetupPasswordScreen(
     viewModel: AuthViewModel = viewModel(),

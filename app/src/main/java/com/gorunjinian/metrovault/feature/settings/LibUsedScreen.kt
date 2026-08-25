@@ -4,14 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 
 /**
  * Data class representing a library/dependency used in the app.
@@ -33,53 +32,45 @@ fun LibUsedScreen(
 ) {
     val libraries = listOf(
         // Core Android
-        Library("AndroidX Core KTX", "Core Android", "Kotlin extensions for Android core", "1.17.0"),
-        Library("AndroidX AppCompat", "Core Android", "Backward-compatible Android components", "1.7.1"),
-        Library("AndroidX Activity KTX", "Core Android", "Kotlin extensions for Activity", "1.12.2"),
-        Library("AndroidX Fragment KTX", "Core Android", "Kotlin extensions for Fragment", "1.8.9"),
+        Library("AndroidX Core KTX", "Core Android", "Kotlin extensions for Android core", "1.19.0"),
+        Library("AndroidX AppCompat", "Core Android", "Backward-compatible Android components", "1.8.0"),
+        Library("AndroidX Activity KTX", "Core Android", "Kotlin extensions for Activity", "1.13.0"),
+        Library("AndroidX Fragment KTX", "Core Android", "Kotlin extensions for Fragment", "1.9.0"),
         Library("AndroidX Splash Screen", "Core Android", "Modern splash screen API", "1.2.0"),
-        
+
         // UI & Design
-        Library("Material Design 3", "UI & Design", "Google's Material Design components", "1.13.0"),
-        Library("Jetpack Compose", "UI & Design", "Modern declarative UI toolkit", "BOM 2025.12.01"),
+        Library("Compose Material 3", "UI & Design", "Material Design 3 components for Compose", "1.4.0"),
+        Library("Jetpack Compose", "UI & Design", "Modern declarative UI toolkit", "BOM 2026.08.00"),
         Library("Compose Material Icons", "UI & Design", "Extended Material Design icons"),
-        Library("Navigation Compose", "UI & Design", "Navigation for Compose apps", "2.9.6"),
-        
+        Library("Navigation Compose", "UI & Design", "Navigation for Compose apps", "2.9.8"),
+        Library("Reorderable", "UI & Design", "Drag-and-drop reordering for Compose lists", "3.1.0"),
+
         // Security & Crypto
         Library("AndroidX Security Crypto", "Security", "Encrypted SharedPreferences", "1.1.0"),
-        Library("AndroidX Biometric", "Security", "Fingerprint & face authentication", "1.2.0-α05"),
-        Library("Secp256k1 KMP", "Cryptography", "Bitcoin elliptic curve cryptography", "0.22.0"),
-        
+        Library("AndroidX Biometric", "Security", "Fingerprint & face authentication", "1.4.0-α07"),
+        Library("Secp256k1 KMP", "Cryptography", "Bitcoin elliptic curve cryptography", "0.23.0"),
+
         // QR Code
         Library("ZXing Core", "QR Code", "Barcode/QR code processing library", "3.5.4"),
         Library("ZXing Android Embedded", "QR Code", "Android camera integration for ZXing", "4.3.0"),
         Library("BC-UR Kotlin", "QR Code", "BC-UR v1/v2 encoding with CBOR serialization", "1.0.5"),
-        Library("BBQr", "QR Code", "Multi-frame QR code encoding/decoding", "1.0.2"),
-        
+        Library("BBQr", "QR Code", "Multi-frame QR code encoding/decoding", "1.0.3"),
+
         // Concurrency
-        Library("Kotlin Coroutines", "Concurrency", "Asynchronous programming support", "1.10.2"),
-        
+        Library("Kotlin Coroutines", "Concurrency", "Asynchronous programming support", "1.11.0"),
+
         // Lifecycle
-        Library("AndroidX Lifecycle Runtime", "Lifecycle", "Lifecycle-aware components", "2.10.0"),
-        Library("AndroidX Lifecycle ViewModel", "Lifecycle", "MVVM architecture support", "2.10.0"),
-        Library("AndroidX Lifecycle Process", "Lifecycle", "App lifecycle observer", "2.10.0"),
-        
-        // Other
-        Library("AndroidX Window", "Utilities", "Window management APIs", "1.5.1")
+        Library("AndroidX Lifecycle Runtime", "Lifecycle", "Lifecycle-aware components", "2.11.0"),
+        Library("AndroidX Lifecycle ViewModel", "Lifecycle", "MVVM architecture support", "2.11.0"),
+        Library("AndroidX Lifecycle Process", "Lifecycle", "App lifecycle observer", "2.11.0")
     )
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Libraries Used") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+            MetroTopBar(
+                title = "Libraries Used",
+                onBack = onBack,
+                colors = TopAppBarDefaults.topAppBarColors()
             )
         }
     ) { padding ->

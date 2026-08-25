@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,18 +14,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.domain.Wallet
 import com.gorunjinian.metrovault.lib.bitcoin.MnemonicCode
 import com.gorunjinian.metrovault.core.ui.components.SecureOutlinedTextField
 import com.gorunjinian.metrovault.core.ui.components.SettingsInfoCard
+import com.gorunjinian.metrovault.core.util.SecurityUtils
 import kotlinx.coroutines.launch
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -46,7 +45,6 @@ private fun hmacSha512(key: ByteArray, data: ByteArray): ByteArray {
     return mac.doFinal(data)
 }
 
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BIP85DeriveScreen(
@@ -65,7 +63,7 @@ fun BIP85DeriveScreen(
     var showDerivedSeedQR by remember { mutableStateOf(false) }
     
     // Clipboard and haptic feedback for password copy
-    val clipboard = LocalClipboard.current
+    val context = LocalContext.current
     val hapticFeedback = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -80,16 +78,9 @@ fun BIP85DeriveScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("BIP-85 Derivation") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+            MetroTopBar(
+                title = "BIP-85 Derivation",
+                onBack = onBack
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -461,10 +452,16 @@ fun BIP85DeriveScreen(
                         .fillMaxWidth()
                         .clickable {
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            // Derived password is a secret: auto-clear the clipboard
+                            SecurityUtils.copyToClipboard(
+                                context = context,
+                                label = "BIP-85 Password",
+                                text = derivedPassword!!,
+                                sensitive = true
+                            )
                             scope.launch {
-                                clipboard.setClipEntry(ClipEntry(android.content.ClipData.newPlainText("password", derivedPassword!!)))
                                 snackbarHostState.showSnackbar(
-                                    message = "Password copied to clipboard",
+                                    message = "Password copied — clipboard clears in 20 seconds",
                                     duration = SnackbarDuration.Short
                                 )
                             }
