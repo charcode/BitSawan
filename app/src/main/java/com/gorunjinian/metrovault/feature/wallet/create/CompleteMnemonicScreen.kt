@@ -3,14 +3,12 @@ package com.gorunjinian.metrovault.feature.wallet.create
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,16 +40,9 @@ fun CompleteMnemonicScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Complete Mnemonic") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+            MetroTopBar(
+                title = "Complete Mnemonic",
+                onBack = onBack
             )
         }
     ) { padding ->

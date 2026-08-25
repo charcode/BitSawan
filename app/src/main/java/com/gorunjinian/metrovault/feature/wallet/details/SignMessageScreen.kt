@@ -1,7 +1,6 @@
 package com.gorunjinian.metrovault.feature.wallet.details
 
 import android.Manifest
-import android.content.ClipData
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -9,16 +8,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.toClipEntry
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -28,14 +23,15 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.qr.QRDensity
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.core.ui.components.SecureOutlinedTextField
 import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
+import com.gorunjinian.metrovault.core.util.SecurityUtils
 import com.gorunjinian.metrovault.feature.transaction.components.PSBTScannerView
 import com.gorunjinian.metrovault.feature.transaction.components.SignedPSBTDisplay
 import com.gorunjinian.metrovault.lib.bitcoin.MessageSigning
 import com.journeyapps.barcodescanner.CompoundBarcodeView
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -62,8 +58,7 @@ fun SignMessageScreen(
     var isLifecycleResumed by remember { mutableStateOf(false) }
     var showDensityMenu by remember { mutableStateOf(false) }
 
-    val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboard.current
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.applyPrefilledAddress(prefilledAddress)
@@ -129,31 +124,23 @@ fun SignMessageScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        if (uiState.isScanning) {
-                            if (uiState.scanTarget == SignMessageViewModel.ScanTarget.ADDRESS) {
-                                "Scan Address QR"
-                            } else {
-                                "Scan Message QR"
-                            }
-                        } else {
-                            "Sign/Verify Message"
-                        }
-                    )
+            MetroTopBar(
+                title = if (uiState.isScanning) {
+                    if (uiState.scanTarget == SignMessageViewModel.ScanTarget.ADDRESS) {
+                        "Scan Address QR"
+                    } else {
+                        "Scan Message QR"
+                    }
+                } else {
+                    "Sign/Verify Message"
                 },
-                navigationIcon = {
-                    IconButton(onClick = {
+                onBack = {
                         when {
                             uiState.isScanning -> viewModel.stopScanning()
                             uiState.showSignedPsbtDisplay -> viewModel.setShowSignedPsbtDisplay(false)
                             else -> onBack()
                         }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                    },
                 actions = {
                     // QR density control, only while the signed message PSBT is displayed
                     if (uiState.showSignedPsbtDisplay && uiState.signedQRResult != null) {
@@ -188,10 +175,7 @@ fun SignMessageScreen(
                             }
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                }
             )
         }
     ) { padding ->
@@ -375,10 +359,13 @@ fun SignMessageScreen(
                             if (uiState.signatureInput.isNotBlank()) {
                                 IconButton(
                                     onClick = {
-                                        scope.launch {
-                                            val clipData = ClipData.newPlainText("signature", uiState.signatureInput)
-                                            clipboard.setClipEntry(clipData.toClipEntry())
-                                        }
+                                        // Signatures are public — no auto-clear
+                                        SecurityUtils.copyToClipboard(
+                                            context = context,
+                                            label = "Signature",
+                                            text = uiState.signatureInput,
+                                            sensitive = false
+                                        )
                                     }
                                 ) {
                                     Icon(

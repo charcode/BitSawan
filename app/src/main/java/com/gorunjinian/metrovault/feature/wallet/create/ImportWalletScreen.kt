@@ -6,8 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +19,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gorunjinian.metrovault.R
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.lib.bitcoin.MnemonicCode
 import com.gorunjinian.metrovault.core.qr.SeedQRUtils
 import com.gorunjinian.metrovault.core.ui.components.MnemonicInputField
@@ -57,13 +58,10 @@ fun ImportWalletScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Import Wallet") },
-                navigationIcon = {
-                    IconButton(onClick = { viewModel.goToPreviousStep() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            MetroTopBar(
+                title = "Import Wallet",
+                onBack = { viewModel.goToPreviousStep() },
+                colors = TopAppBarDefaults.topAppBarColors()
             )
         }
     ) { padding ->
@@ -318,18 +316,10 @@ private fun Step2SeedPhrase(
                 .padding(bottom = 16.dp)
         ) {
             if (validationError.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = validationError,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
+                InfoCard(
+                    text = validationError,
+                    tone = InfoTone.Danger
+                )
                 Spacer(modifier = Modifier.height(8.dp))
             }
 

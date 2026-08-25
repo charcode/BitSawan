@@ -12,14 +12,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.gorunjinian.metrovault.R
 import androidx.compose.ui.res.painterResource
+import com.gorunjinian.metrovault.core.ui.components.InfoCard
+import com.gorunjinian.metrovault.core.ui.components.InfoTone
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.core.ui.components.SegmentedToggle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -57,13 +58,10 @@ fun CreateWalletScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Create Wallet") },
-                navigationIcon = {
-                    IconButton(onClick = { viewModel.goToPreviousStep() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+            MetroTopBar(
+                title = "Create Wallet",
+                onBack = { viewModel.goToPreviousStep() },
+                colors = TopAppBarDefaults.topAppBarColors()
             )
         }
     ) { padding ->
@@ -217,18 +215,11 @@ private fun Step2Entropy(
             style = MaterialTheme.typography.headlineSmall
         )
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Text(
-            text = "Add your own randomness to the wallet generation. This is optional but can provide additional security assurance.",
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
+    InfoCard(
+        text = "Add your own randomness to the wallet generation. This is optional but can provide additional security assurance.",
+        tone = InfoTone.Neutral,
+        textStyle = MaterialTheme.typography.bodyMedium
+    )
 
     Spacer(modifier = Modifier.height(8.dp))
 
@@ -376,18 +367,11 @@ private fun Step3SeedPhrase(
             style = MaterialTheme.typography.headlineSmall
         )
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
-    ) {
-        Text(
-            text = "Write down your seed phrase and keep it safe. Never share it with anyone.",
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
+    InfoCard(
+        text = "Write down your seed phrase and keep it safe. Never share it with anyone.",
+        tone = InfoTone.Danger,
+        textStyle = MaterialTheme.typography.bodyMedium
+    )
 
     Card(modifier = Modifier.fillMaxWidth()) {
         val wordsPerColumn = generatedMnemonic.size / 2

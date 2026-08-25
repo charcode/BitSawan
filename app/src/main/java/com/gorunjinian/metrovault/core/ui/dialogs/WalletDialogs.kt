@@ -183,7 +183,6 @@ fun RenameAccountDialog(
  * @param onDismiss Called when user cancels at any point
  * @param onDeleted Called after successful deletion (e.g., for navigation)
  */
-@Suppress("AssignedValueIsNeverRead")
 @Composable
 fun DeleteWalletDialogs(
     walletToDelete: WalletMetadata?,

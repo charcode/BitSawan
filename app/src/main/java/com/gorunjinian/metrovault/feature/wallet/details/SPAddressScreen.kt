@@ -1,8 +1,5 @@
 package com.gorunjinian.metrovault.feature.wallet.details
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -10,13 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -30,7 +24,10 @@ import androidx.compose.ui.window.Dialog
 import com.gorunjinian.metrovault.R
 import com.gorunjinian.metrovault.core.qr.QRCodeUtils
 import com.gorunjinian.metrovault.core.storage.SecureStorage
+import com.gorunjinian.metrovault.core.ui.components.CopyableValueCard
+import com.gorunjinian.metrovault.core.ui.components.MetroTopBar
 import com.gorunjinian.metrovault.core.ui.dialogs.VerifyPasswordDialog
+import com.gorunjinian.metrovault.core.util.SecurityUtils
 import com.gorunjinian.metrovault.data.model.SilentPaymentKeys
 import com.gorunjinian.metrovault.data.repository.UserPreferencesRepository
 import com.gorunjinian.metrovault.domain.Wallet
@@ -59,14 +56,9 @@ fun SPAddressScreen(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Silent Payment Address") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            MetroTopBar(
+                title = "Silent Payment Address",
+                onBack = onBack
             )
         }
     ) { padding ->
@@ -148,7 +140,17 @@ fun SilentPaymentAddressContent(
                         .then(
                             if (tapToCopyEnabled) {
                                 Modifier.clickable {
-                                    copyToClipboard(context, "Silent Payment Address", address)
+                                    SecurityUtils.copyToClipboard(
+                                        context = context,
+                                        label = "Silent Payment Address",
+                                        text = address,
+                                        sensitive = false
+                                    )
+                                    Toast.makeText(
+                                        context,
+                                        "Silent Payment Address copied",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             } else Modifier
                         )
@@ -283,7 +285,6 @@ fun SilentPaymentAddressContent(
 
 @Composable
 private fun SpKeysDialog(keys: SilentPaymentKeys, onDismiss: () -> Unit) {
-    val context = LocalContext.current
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
@@ -303,26 +304,23 @@ private fun SpKeysDialog(keys: SilentPaymentKeys, onDismiss: () -> Unit) {
                     fontWeight = FontWeight.Bold
                 )
 
-                KeyRow(
+                CopyableValueCard(
                     label = "Scan Public Key",
                     value = keys.scanPublicKey.toHex(),
                     sensitive = false,
-                    context = context,
-                    clipLabel = "SP Scan Public Key"
+                    clipboardLabel = "SP Scan Public Key"
                 )
-                KeyRow(
+                CopyableValueCard(
                     label = "Spend Public Key",
                     value = keys.spendPublicKey.toHex(),
                     sensitive = false,
-                    context = context,
-                    clipLabel = "SP Spend Public Key"
+                    clipboardLabel = "SP Spend Public Key"
                 )
-                KeyRow(
+                CopyableValueCard(
                     label = "Scan Private Key",
                     value = keys.scanPrivateKey.toHex(),
                     sensitive = true,
-                    context = context,
-                    clipLabel = "SP Scan Private Key"
+                    clipboardLabel = "SP Scan Private Key"
                 )
 
                 TextButton(
@@ -334,47 +332,3 @@ private fun SpKeysDialog(keys: SilentPaymentKeys, onDismiss: () -> Unit) {
     }
 }
 
-@Composable
-private fun KeyRow(
-    label: String,
-    value: String,
-    sensitive: Boolean,
-    context: Context,
-    clipLabel: String,
-) {
-    Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleSmall,
-            color = if (sensitive) MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { copyToClipboard(context, clipLabel, value) },
-            colors = if (sensitive) {
-                CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-            } else {
-                CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            }
-        ) {
-            Text(
-                text = value,
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = if (sensitive) FontWeight.Medium else FontWeight.Normal
-            )
-        }
-    }
-}
-
-private fun copyToClipboard(context: Context, label: String, value: String) {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText(label, value))
-    Toast.makeText(context, "$label copied", Toast.LENGTH_SHORT).show()
-}
