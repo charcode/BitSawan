@@ -78,7 +78,7 @@ The primary goal of MetroVault is to provide a completely **offline** environmen
 - **Change Script Type**: Switch a single-sig wallet between Taproot / Native SegWit / Nested SegWit / Legacy without re-importing the seed
 - **Passphrase Support**: Optional BIP-39 passphrase with choice to save locally or keep in session memory only
 - **Testnet4 Support**: Import or create Testnet wallet for testing and development
-- **Custom Entropy**: Add your own randomness via dice rolls or coin flips
+- **Custom Entropy**: Capture coin tosses, dice rolls, or playing-card draws; use the recommended device-mixed mode or an entropy-threshold-gated reproducible physical-only mode
 - **Mnemonic Tools**: Built-in checksum calculator and validator
 - **BIP-85 Derivation**: Generate child seeds (12/24 words) and secure passwords from your master seed
 - **XPRIV Export**: Export wallet's extended private key (if needed)
