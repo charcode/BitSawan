@@ -1,0 +1,4438 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Dice / Coin / Cards → BIP39 Mnemonic & Bitcoin Wallet</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --bg: #f6f7fb;
+      --panel: rgba(255,255,255,.96);
+      --text: #16181d;
+      --muted: #68707d;
+      --line: #e1e4ea;
+      --accent: #111827;
+      --soft: #f1f3f6;
+      --danger: #b42318;
+      --warn-bg: #fff8e6;
+      --warn-line: #e9c46a;
+      --shadow: 0 8px 30px rgba(20, 28, 45, .06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 34px 20px 70px;
+      line-height: 1.45;
+      background: var(--bg);
+      color: var(--text);
+    }
+    h1 { margin: 0 0 6px; font-size: clamp(1.8rem, 3vw, 2.5rem); letter-spacing: -.03em; }
+    h2 { margin-top: 28px; }
+    h3 { margin-top: 0; }
+    .muted { color: var(--muted); font-size: .93rem; }
+    .warn {
+      border: 1px solid var(--warn-line);
+      background: var(--warn-bg);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin: 14px 0;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      overflow-wrap: anywhere;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+      gap: 16px;
+    }
+    label { display:block; margin: 10px 0 7px; font-weight: 700; }
+    input, button { font: inherit; }
+    input[type="password"] {
+      width:100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fff;
+      outline: none;
+    }
+    input[type="password"]:focus { border-color: #9ca3af; box-shadow: 0 0 0 3px rgba(17,24,39,.06); }
+
+    .segmented {
+      display: inline-flex;
+      padding: 4px;
+      gap: 4px;
+      border-radius: 13px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+    }
+    .segmented label {
+      margin: 0;
+      position: relative;
+      cursor: pointer;
+      font-weight: 650;
+    }
+    .segmented input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .segmented span {
+      display:block;
+      padding: 8px 12px;
+      border-radius: 9px;
+      color: var(--muted);
+      transition: .15s ease;
+      user-select: none;
+    }
+    .segmented input:checked + span {
+      color: var(--text);
+      background: #fff;
+      box-shadow: 0 1px 5px rgba(0,0,0,.08);
+    }
+
+    .card-replacement-wrap[hidden] { display:none !important; }
+    .card-replacement-wrap {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin: 2px 0 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--soft);
+    }
+    .card-replacement-label {
+      font-weight: 700;
+      font-size: .9rem;
+    }
+    .card-replacement-help {
+      color: var(--muted);
+      font-size: .78rem;
+      margin-top: 3px;
+    }
+    @media (max-width: 650px) {
+      .card-replacement-wrap { align-items:flex-start; flex-direction:column; }
+    }
+
+    .capture-shell {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      min-height: 118px;
+      padding: 12px;
+      cursor: text;
+    }
+    .capture-top {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      margin-bottom: 9px;
+    }
+    .capture-title { font-weight: 750; }
+    .keyhint {
+      color: var(--muted);
+      font-size: .82rem;
+      white-space: nowrap;
+    }
+    .rolls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      min-height: 50px;
+    }
+    .empty {
+      color: #9aa1ad;
+      padding: 9px 2px;
+      font-size: .94rem;
+    }
+    .roll-chip {
+      position: relative;
+      width: 48px;
+      min-width: 48px;
+      height: 48px;
+      border-radius: 13px;
+      border: 1px solid #d8dce3;
+      background: linear-gradient(180deg, #fff, #f7f8fa);
+      box-shadow: 0 2px 8px rgba(20,28,45,.06);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight: 800;
+      font-size: 1.05rem;
+      user-select:none;
+      cursor: grab;
+    }
+    .roll-chip:active { cursor: grabbing; }
+    .roll-chip.dragging { opacity: .45; }
+    .roll-chip.drop-before { box-shadow: -4px 0 0 #111827, 0 2px 8px rgba(20,28,45,.06); }
+    .chip-remove {
+      position:absolute;
+      right:-5px;
+      top:-6px;
+      width:18px;
+      height:18px;
+      border:0;
+      border-radius:50%;
+      background:#fff;
+      color:#707784;
+      box-shadow: 0 1px 5px rgba(0,0,0,.15);
+      padding:0;
+      line-height:18px;
+      cursor:pointer;
+      font-size:13px;
+      font-weight:900;
+    }
+    .chip-remove:hover { color: var(--danger); }
+    .chip-nav {
+      position:absolute;
+      bottom:-8px;
+      left:50%;
+      transform: translateX(-50%);
+      display:flex;
+      gap:2px;
+      opacity:0;
+      transition:.12s ease;
+    }
+    .roll-chip:hover .chip-nav { opacity:1; }
+    .chip-nav button {
+      width:18px; height:18px; padding:0; margin:0;
+      border:1px solid var(--line); border-radius:6px; background:#fff;
+      color:#6b7280; font-size:10px; cursor:pointer;
+    }
+    .toolbar {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .stats { color: var(--muted); font-size:.92rem; }
+    .stats strong { color: var(--text); }
+    .text-btn {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 5px 8px;
+      cursor:pointer;
+      border-radius:8px;
+    }
+    .text-btn:hover { background: var(--soft); color:var(--text); }
+    .value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+      font-size: .9rem;
+    }
+    .status-low { color: #9a6700; font-weight: 700; }
+    .status-good { color: #067647; font-weight: 700; }
+    .section-gap { margin-top: 16px; }
+  
+    /* Mobile / tablet capture controls */
+    .mobile-capture-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0.01;
+      border: 0;
+      padding: 0;
+      margin: 0;
+      pointer-events: none;
+      caret-color: transparent;
+    }
+    .touch-pad {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(44px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .touch-key {
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 2px 7px rgba(20,28,45,.05);
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      cursor: pointer;
+    }
+    .touch-key:active {
+      transform: translateY(1px);
+      background: var(--soft);
+    }
+    .touch-key.secondary {
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    @media (max-width: 760px) {
+      body {
+        padding: 18px 12px 48px;
+      }
+      h1 {
+        font-size: 1.75rem;
+      }
+      .card {
+        padding: 14px;
+        border-radius: 15px;
+      }
+      .capture-shell {
+        min-height: 108px;
+        padding: 10px;
+      }
+      .capture-top {
+        align-items: flex-start;
+      }
+      .keyhint {
+        white-space: normal;
+        text-align: right;
+        max-width: 48%;
+      }
+      .rolls {
+        gap: 7px;
+      }
+      .roll-chip {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        border-radius: 11px;
+      }
+      .chip-nav {
+        display: none;
+      }
+      .touch-pad {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 6px;
+      }
+      .touch-key {
+        min-height: 48px;
+        padding: 8px 4px;
+      }
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .value {
+        font-size: .82rem;
+      }
+      .toolbar {
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .segmented {
+        width: 100%;
+      }
+      .segmented label {
+        flex: 1;
+      }
+      .segmented span {
+        text-align: center;
+        padding: 9px 7px;
+      }
+      .touch-pad {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .touch-key {
+        min-height: 52px;
+        font-size: 1.05rem;
+      }
+    }
+
+  
+    .mode-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); width:100%; }
+    .word-input-wrap { margin-top:14px; }
+    .word-picker {
+      position:relative;
+      width:100%;
+      min-height:116px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:10px;
+      background:#fff;
+      transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    .word-picker:focus-within {
+      border-color:#9ca3af;
+      box-shadow:0 0 0 3px rgba(17,24,39,.06);
+    }
+    .word-chips {
+      display:flex;
+      flex-wrap:wrap;
+      gap:7px;
+      align-items:center;
+    }
+    .seed-chip {
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-height:36px;
+      padding:6px 7px 6px 11px;
+      border:1px solid #d9dee7;
+      border-radius:10px;
+      background:linear-gradient(180deg,#fff,#f6f8fb);
+      box-shadow:0 1px 4px rgba(20,28,45,.05);
+      font-weight:700;
+      font-size:.92rem;
+      user-select:none;
+    }
+    .seed-chip-index {
+      color:#98a0ac;
+      font-size:.73rem;
+      font-weight:700;
+    }
+    .seed-chip-remove {
+      display:grid;
+      place-items:center;
+      width:22px;
+      height:22px;
+      padding:0;
+      margin:0;
+      border:0;
+      border-radius:7px;
+      background:transparent;
+      color:#828a96;
+      cursor:pointer;
+      font-size:16px;
+      line-height:1;
+    }
+    .seed-chip-remove:hover { background:#eceff3; color:var(--danger); }
+    .seed-chip.checksum-chip {
+      background:#f2f7f4;
+      border-color:#c9ddd0;
+    }
+    .checksum-badge {
+      color:#39724c;
+      font-size:.68rem;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.03em;
+    }
+    .word-entry-row { margin-top:7px; }
+    .word-entry {
+      width:100%;
+      min-height:42px;
+      padding:7px 5px;
+      border:0;
+      outline:0;
+      background:transparent;
+      color:var(--text);
+      font:inherit;
+      font-size:1rem;
+    }
+    .word-entry::placeholder { color:#a0a7b2; }
+    .word-suggestions {
+      position:absolute;
+      z-index:50;
+      left:10px;
+      right:10px;
+      top:calc(100% - 7px);
+      max-height:260px;
+      overflow:auto;
+      border:1px solid #d8dde5;
+      border-radius:13px;
+      background:#fff;
+      box-shadow:0 14px 35px rgba(20,28,45,.16);
+      padding:6px;
+    }
+    .word-suggestion {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      width:100%;
+      min-height:40px;
+      padding:8px 10px;
+      border:0;
+      border-radius:9px;
+      background:transparent;
+      color:var(--text);
+      text-align:left;
+      font:inherit;
+      cursor:pointer;
+    }
+    .word-suggestion:hover,
+    .word-suggestion.active {
+      background:#f1f3f6;
+    }
+    .word-suggestion-prefix { font-weight:800; }
+    .word-suggestion-rest { color:#656d79; }
+    .word-suggestion-num { color:#a0a7b2; font-size:.78rem; }
+    .word-help { margin-top:8px; }
+    .word-error { color:#b42318; font-weight:700; }
+    @media (max-width:430px) {
+      .seed-chip { min-height:34px; padding:5px 6px 5px 9px; font-size:.88rem; }
+      .word-suggestions { max-height:210px; }
+    }
+    .source-card { border:1px solid #cad5e2; background:#fbfdff; }
+    .conversion-alert { border:1px solid #e9c46a; background:#fff8e6; border-radius:14px; padding:12px 14px; margin-bottom:16px; }
+    @media (max-width:760px) { .mode-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+    @media (max-width:430px) { .mode-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+
+    .touch-pad.cards-pad { grid-template-columns: 1fr; gap: 10px; }
+    .suit-group { border:1px solid var(--line); border-radius:12px; padding:9px; background:#fafbfc; }
+    .suit-title { font-weight:800; margin-bottom:7px; }
+    .suit-buttons { display:grid; grid-template-columns:repeat(13,minmax(42px,1fr)); gap:6px; overflow-x:auto; padding-bottom:2px; }
+    .card-key { min-width:42px; min-height:44px; }
+    .card-key[disabled] { opacity:.3; cursor:not-allowed; box-shadow:none; }
+    .cards-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    @media (max-width:760px) { .suit-buttons { grid-template-columns:repeat(7,minmax(42px,1fr)); } }
+    @media (max-width:430px) { .suit-buttons { grid-template-columns:repeat(4,minmax(44px,1fr)); } }
+
+    .mnemonic-summary { margin:0 0 18px; padding:16px; border:2px solid #c8d7ea; border-radius:16px; background:#f8fbff; }
+    .mnemonic-summary h3 { margin:0 0 6px; }
+    .mnemonic-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:12px; }
+    .mnemonic-box { padding:14px; border:1px solid var(--line); border-radius:13px; background:white; }
+    .mnemonic-box .phrase { margin-top:8px; font-size:1.02rem; line-height:1.65; font-weight:750; word-spacing:.15em; overflow-wrap:anywhere; }
+    .mnemonic-note { margin-top:8px; font-size:.88rem; color:var(--muted); line-height:1.4; }
+    @media (max-width:760px) { .mnemonic-grid { grid-template-columns:1fr; } }
+
+    .offline-badge { display:inline-flex; align-items:center; gap:7px; padding:6px 10px; margin:7px 0 2px; border:1px solid #a9d4bd; background:#edf9f2; color:#17623a; border-radius:999px; font-size:.84rem; font-weight:750; }
+    .offline-dot { width:8px; height:8px; border-radius:50%; background:#1e8e55; }
+    /* Safari/iOS hardening */
+    button, input, label, .word-suggestion, .card-btn {
+      -webkit-tap-highlight-color: transparent;
+    }
+    button, .word-suggestion, .card-btn {
+      -webkit-touch-callout: none;
+    }
+    input, button, select, textarea {
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+<h1>Dice / Coin / Cards → BIP39 Mnemonic & Bitcoin Wallet</h1>
+<div class="offline-badge"><span class="offline-dot"></span>OFFLINE · ZERO EXTERNAL DEPENDENCIES</div>
+<div class="muted"><strong>Fully offline.</strong> All cryptography and both wordlists are embedded in this file. No network access or external dependencies are used.</div>
+
+<div class="warn">
+  <strong>Security warning:</strong> This file is designed to run offline and its Content Security Policy blocks network connections. It is still newly written wallet software: verify test vectors and independently cross-check any wallet before using it with meaningful funds.
+</div>
+
+<div class="card">
+  <div class="segmented mode-grid" role="radiogroup" aria-label="Input type">
+    <label><input type="radio" name="mode" value="dice" checked><span>🎲 Dice</span></label>
+    <label><input type="radio" name="mode" value="coin"><span>🪙 Coin</span></label>
+    <label><input type="radio" name="mode" value="cards"><span>🃏 Cards</span></label>
+    <label><input type="radio" name="mode" value="bip39-12"><span>12 words</span></label>
+    <label><input type="radio" name="mode" value="slip39-20"><span>Trezor 20</span></label>
+    <label><input type="radio" name="mode" value="bip39-24"><span>24 words</span></label>
+  </div>
+
+  <div id="captureShell" class="capture-shell" tabindex="0" aria-label="Dice, coin, or playing-card input area">
+    <div class="capture-top">
+      <div id="captureTitle" class="capture-title">Dice rolls</div>
+      <div id="keyHint" class="keyhint">Press keys 1–6</div>
+    </div>
+    <div id="cardReplacementWrap" class="card-replacement-wrap" hidden>
+      <div>
+        <div class="card-replacement-label">Drawing method</div>
+        <div id="cardReplacementHelp" class="card-replacement-help">Return the card and reshuffle before every draw.</div>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="Playing card replacement mode">
+        <label><input type="radio" name="cardReplacement" value="with" checked><span>With replacement</span></label>
+        <label><input type="radio" name="cardReplacement" value="without"><span>Without replacement</span></label>
+      </div>
+    </div>
+    <div id="rolls" class="rolls"></div>
+    <input
+      id="mobileCaptureInput"
+      class="mobile-capture-input"
+      type="text"
+      inputmode="numeric"
+      pattern="[1-6]*"
+      autocomplete="off"
+      autocapitalize="off"
+      autocorrect="off"
+      spellcheck="false"
+      aria-label="Capture dice rolls or coin flips">
+  </div>
+
+  <div id="touchPad" class="touch-pad" aria-label="Touch input buttons"></div>
+  <div id="wordInputWrap" class="word-input-wrap" hidden>
+    <label id="wordInputLabel" for="wordEntry">Seed phrase</label>
+
+    <div id="wordPicker" class="word-picker">
+      <div id="wordChips" class="word-chips"></div>
+      <div class="word-entry-row">
+        <input id="wordEntry" class="word-entry" type="text"
+          spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
+          placeholder="Start typing a word…" aria-autocomplete="list"
+          aria-controls="wordSuggestions" aria-expanded="false">
+      </div>
+      <div id="wordSuggestions" class="word-suggestions" role="listbox" hidden></div>
+    </div>
+
+    <!-- Internal canonical phrase value used by the wallet calculations. -->
+    <textarea id="wordInput" hidden aria-hidden="true"></textarea>
+    <div id="wordStatus" class="stats"></div>
+    <div class="muted word-help">Only position-valid words from the selected embedded dictionary can be entered. For BIP39, the final word is checksum-filtered after word 11/23. For a canonical Trezor 20-word SLIP39 Single-share Backup, words 3–4 are fixed 1-of-1 metadata, word 5 is padding-constrained, and checksum words 18–20 are generated and locked automatically.</div>
+  </div>
+
+  <div class="toolbar">
+    <div id="stats" class="stats"></div>
+    <button id="clear" class="text-btn" type="button">Clear all</button>
+  </div>
+
+  <div class="section-gap">
+    <label id="passphraseLabel" for="passphrase">Optional BIP39 passphrase</label>
+    <input id="passphrase" type="password" placeholder="Leave blank for no passphrase" autocomplete="new-password">
+  </div>
+
+  <p id="conversionNote" class="muted section-gap">
+    Dice/coin/card input is hashed deterministically. BIP39 and Trezor SLIP39 phrase inputs are validated
+    according to their source standard. Converted 12/24-word phrases are deterministic new BIP39 wallets
+    unless the selected source is already that exact BIP39 phrase.
+  </p>
+  <p class="muted"><strong>Cards mode:</strong> <em>With replacement</em> is the default: return the card and thoroughly reshuffle before every draw, so repeats are allowed and each ideal independent draw contributes log₂(52) ≈ 5.70 bits. About 23 draws exceed 128 bits and 45 exceed 256 bits. <em>Without replacement</em> uses a single shuffled deck; cards cannot repeat and a full 52-card ordering contains about 225.58 bits.</p>
+</div>
+
+<h2>Results</h2>
+<div id="results"></div>
+
+<script>
+
+const BIP39_WORDS = `abandon
+ability
+able
+about
+above
+absent
+absorb
+abstract
+absurd
+abuse
+access
+accident
+account
+accuse
+achieve
+acid
+acoustic
+acquire
+across
+act
+action
+actor
+actress
+actual
+adapt
+add
+addict
+address
+adjust
+admit
+adult
+advance
+advice
+aerobic
+affair
+afford
+afraid
+again
+age
+agent
+agree
+ahead
+aim
+air
+airport
+aisle
+alarm
+album
+alcohol
+alert
+alien
+all
+alley
+allow
+almost
+alone
+alpha
+already
+also
+alter
+always
+amateur
+amazing
+among
+amount
+amused
+analyst
+anchor
+ancient
+anger
+angle
+angry
+animal
+ankle
+announce
+annual
+another
+answer
+antenna
+antique
+anxiety
+any
+apart
+apology
+appear
+apple
+approve
+april
+arch
+arctic
+area
+arena
+argue
+arm
+armed
+armor
+army
+around
+arrange
+arrest
+arrive
+arrow
+art
+artefact
+artist
+artwork
+ask
+aspect
+assault
+asset
+assist
+assume
+asthma
+athlete
+atom
+attack
+attend
+attitude
+attract
+auction
+audit
+august
+aunt
+author
+auto
+autumn
+average
+avocado
+avoid
+awake
+aware
+away
+awesome
+awful
+awkward
+axis
+baby
+bachelor
+bacon
+badge
+bag
+balance
+balcony
+ball
+bamboo
+banana
+banner
+bar
+barely
+bargain
+barrel
+base
+basic
+basket
+battle
+beach
+bean
+beauty
+because
+become
+beef
+before
+begin
+behave
+behind
+believe
+below
+belt
+bench
+benefit
+best
+betray
+better
+between
+beyond
+bicycle
+bid
+bike
+bind
+biology
+bird
+birth
+bitter
+black
+blade
+blame
+blanket
+blast
+bleak
+bless
+blind
+blood
+blossom
+blouse
+blue
+blur
+blush
+board
+boat
+body
+boil
+bomb
+bone
+bonus
+book
+boost
+border
+boring
+borrow
+boss
+bottom
+bounce
+box
+boy
+bracket
+brain
+brand
+brass
+brave
+bread
+breeze
+brick
+bridge
+brief
+bright
+bring
+brisk
+broccoli
+broken
+bronze
+broom
+brother
+brown
+brush
+bubble
+buddy
+budget
+buffalo
+build
+bulb
+bulk
+bullet
+bundle
+bunker
+burden
+burger
+burst
+bus
+business
+busy
+butter
+buyer
+buzz
+cabbage
+cabin
+cable
+cactus
+cage
+cake
+call
+calm
+camera
+camp
+can
+canal
+cancel
+candy
+cannon
+canoe
+canvas
+canyon
+capable
+capital
+captain
+car
+carbon
+card
+cargo
+carpet
+carry
+cart
+case
+cash
+casino
+castle
+casual
+cat
+catalog
+catch
+category
+cattle
+caught
+cause
+caution
+cave
+ceiling
+celery
+cement
+census
+century
+cereal
+certain
+chair
+chalk
+champion
+change
+chaos
+chapter
+charge
+chase
+chat
+cheap
+check
+cheese
+chef
+cherry
+chest
+chicken
+chief
+child
+chimney
+choice
+choose
+chronic
+chuckle
+chunk
+churn
+cigar
+cinnamon
+circle
+citizen
+city
+civil
+claim
+clap
+clarify
+claw
+clay
+clean
+clerk
+clever
+click
+client
+cliff
+climb
+clinic
+clip
+clock
+clog
+close
+cloth
+cloud
+clown
+club
+clump
+cluster
+clutch
+coach
+coast
+coconut
+code
+coffee
+coil
+coin
+collect
+color
+column
+combine
+come
+comfort
+comic
+common
+company
+concert
+conduct
+confirm
+congress
+connect
+consider
+control
+convince
+cook
+cool
+copper
+copy
+coral
+core
+corn
+correct
+cost
+cotton
+couch
+country
+couple
+course
+cousin
+cover
+coyote
+crack
+cradle
+craft
+cram
+crane
+crash
+crater
+crawl
+crazy
+cream
+credit
+creek
+crew
+cricket
+crime
+crisp
+critic
+crop
+cross
+crouch
+crowd
+crucial
+cruel
+cruise
+crumble
+crunch
+crush
+cry
+crystal
+cube
+culture
+cup
+cupboard
+curious
+current
+curtain
+curve
+cushion
+custom
+cute
+cycle
+dad
+damage
+damp
+dance
+danger
+daring
+dash
+daughter
+dawn
+day
+deal
+debate
+debris
+decade
+december
+decide
+decline
+decorate
+decrease
+deer
+defense
+define
+defy
+degree
+delay
+deliver
+demand
+demise
+denial
+dentist
+deny
+depart
+depend
+deposit
+depth
+deputy
+derive
+describe
+desert
+design
+desk
+despair
+destroy
+detail
+detect
+develop
+device
+devote
+diagram
+dial
+diamond
+diary
+dice
+diesel
+diet
+differ
+digital
+dignity
+dilemma
+dinner
+dinosaur
+direct
+dirt
+disagree
+discover
+disease
+dish
+dismiss
+disorder
+display
+distance
+divert
+divide
+divorce
+dizzy
+doctor
+document
+dog
+doll
+dolphin
+domain
+donate
+donkey
+donor
+door
+dose
+double
+dove
+draft
+dragon
+drama
+drastic
+draw
+dream
+dress
+drift
+drill
+drink
+drip
+drive
+drop
+drum
+dry
+duck
+dumb
+dune
+during
+dust
+dutch
+duty
+dwarf
+dynamic
+eager
+eagle
+early
+earn
+earth
+easily
+east
+easy
+echo
+ecology
+economy
+edge
+edit
+educate
+effort
+egg
+eight
+either
+elbow
+elder
+electric
+elegant
+element
+elephant
+elevator
+elite
+else
+embark
+embody
+embrace
+emerge
+emotion
+employ
+empower
+empty
+enable
+enact
+end
+endless
+endorse
+enemy
+energy
+enforce
+engage
+engine
+enhance
+enjoy
+enlist
+enough
+enrich
+enroll
+ensure
+enter
+entire
+entry
+envelope
+episode
+equal
+equip
+era
+erase
+erode
+erosion
+error
+erupt
+escape
+essay
+essence
+estate
+eternal
+ethics
+evidence
+evil
+evoke
+evolve
+exact
+example
+excess
+exchange
+excite
+exclude
+excuse
+execute
+exercise
+exhaust
+exhibit
+exile
+exist
+exit
+exotic
+expand
+expect
+expire
+explain
+expose
+express
+extend
+extra
+eye
+eyebrow
+fabric
+face
+faculty
+fade
+faint
+faith
+fall
+false
+fame
+family
+famous
+fan
+fancy
+fantasy
+farm
+fashion
+fat
+fatal
+father
+fatigue
+fault
+favorite
+feature
+february
+federal
+fee
+feed
+feel
+female
+fence
+festival
+fetch
+fever
+few
+fiber
+fiction
+field
+figure
+file
+film
+filter
+final
+find
+fine
+finger
+finish
+fire
+firm
+first
+fiscal
+fish
+fit
+fitness
+fix
+flag
+flame
+flash
+flat
+flavor
+flee
+flight
+flip
+float
+flock
+floor
+flower
+fluid
+flush
+fly
+foam
+focus
+fog
+foil
+fold
+follow
+food
+foot
+force
+forest
+forget
+fork
+fortune
+forum
+forward
+fossil
+foster
+found
+fox
+fragile
+frame
+frequent
+fresh
+friend
+fringe
+frog
+front
+frost
+frown
+frozen
+fruit
+fuel
+fun
+funny
+furnace
+fury
+future
+gadget
+gain
+galaxy
+gallery
+game
+gap
+garage
+garbage
+garden
+garlic
+garment
+gas
+gasp
+gate
+gather
+gauge
+gaze
+general
+genius
+genre
+gentle
+genuine
+gesture
+ghost
+giant
+gift
+giggle
+ginger
+giraffe
+girl
+give
+glad
+glance
+glare
+glass
+glide
+glimpse
+globe
+gloom
+glory
+glove
+glow
+glue
+goat
+goddess
+gold
+good
+goose
+gorilla
+gospel
+gossip
+govern
+gown
+grab
+grace
+grain
+grant
+grape
+grass
+gravity
+great
+green
+grid
+grief
+grit
+grocery
+group
+grow
+grunt
+guard
+guess
+guide
+guilt
+guitar
+gun
+gym
+habit
+hair
+half
+hammer
+hamster
+hand
+happy
+harbor
+hard
+harsh
+harvest
+hat
+have
+hawk
+hazard
+head
+health
+heart
+heavy
+hedgehog
+height
+hello
+helmet
+help
+hen
+hero
+hidden
+high
+hill
+hint
+hip
+hire
+history
+hobby
+hockey
+hold
+hole
+holiday
+hollow
+home
+honey
+hood
+hope
+horn
+horror
+horse
+hospital
+host
+hotel
+hour
+hover
+hub
+huge
+human
+humble
+humor
+hundred
+hungry
+hunt
+hurdle
+hurry
+hurt
+husband
+hybrid
+ice
+icon
+idea
+identify
+idle
+ignore
+ill
+illegal
+illness
+image
+imitate
+immense
+immune
+impact
+impose
+improve
+impulse
+inch
+include
+income
+increase
+index
+indicate
+indoor
+industry
+infant
+inflict
+inform
+inhale
+inherit
+initial
+inject
+injury
+inmate
+inner
+innocent
+input
+inquiry
+insane
+insect
+inside
+inspire
+install
+intact
+interest
+into
+invest
+invite
+involve
+iron
+island
+isolate
+issue
+item
+ivory
+jacket
+jaguar
+jar
+jazz
+jealous
+jeans
+jelly
+jewel
+job
+join
+joke
+journey
+joy
+judge
+juice
+jump
+jungle
+junior
+junk
+just
+kangaroo
+keen
+keep
+ketchup
+key
+kick
+kid
+kidney
+kind
+kingdom
+kiss
+kit
+kitchen
+kite
+kitten
+kiwi
+knee
+knife
+knock
+know
+lab
+label
+labor
+ladder
+lady
+lake
+lamp
+language
+laptop
+large
+later
+latin
+laugh
+laundry
+lava
+law
+lawn
+lawsuit
+layer
+lazy
+leader
+leaf
+learn
+leave
+lecture
+left
+leg
+legal
+legend
+leisure
+lemon
+lend
+length
+lens
+leopard
+lesson
+letter
+level
+liar
+liberty
+library
+license
+life
+lift
+light
+like
+limb
+limit
+link
+lion
+liquid
+list
+little
+live
+lizard
+load
+loan
+lobster
+local
+lock
+logic
+lonely
+long
+loop
+lottery
+loud
+lounge
+love
+loyal
+lucky
+luggage
+lumber
+lunar
+lunch
+luxury
+lyrics
+machine
+mad
+magic
+magnet
+maid
+mail
+main
+major
+make
+mammal
+man
+manage
+mandate
+mango
+mansion
+manual
+maple
+marble
+march
+margin
+marine
+market
+marriage
+mask
+mass
+master
+match
+material
+math
+matrix
+matter
+maximum
+maze
+meadow
+mean
+measure
+meat
+mechanic
+medal
+media
+melody
+melt
+member
+memory
+mention
+menu
+mercy
+merge
+merit
+merry
+mesh
+message
+metal
+method
+middle
+midnight
+milk
+million
+mimic
+mind
+minimum
+minor
+minute
+miracle
+mirror
+misery
+miss
+mistake
+mix
+mixed
+mixture
+mobile
+model
+modify
+mom
+moment
+monitor
+monkey
+monster
+month
+moon
+moral
+more
+morning
+mosquito
+mother
+motion
+motor
+mountain
+mouse
+move
+movie
+much
+muffin
+mule
+multiply
+muscle
+museum
+mushroom
+music
+must
+mutual
+myself
+mystery
+myth
+naive
+name
+napkin
+narrow
+nasty
+nation
+nature
+near
+neck
+need
+negative
+neglect
+neither
+nephew
+nerve
+nest
+net
+network
+neutral
+never
+news
+next
+nice
+night
+noble
+noise
+nominee
+noodle
+normal
+north
+nose
+notable
+note
+nothing
+notice
+novel
+now
+nuclear
+number
+nurse
+nut
+oak
+obey
+object
+oblige
+obscure
+observe
+obtain
+obvious
+occur
+ocean
+october
+odor
+off
+offer
+office
+often
+oil
+okay
+old
+olive
+olympic
+omit
+once
+one
+onion
+online
+only
+open
+opera
+opinion
+oppose
+option
+orange
+orbit
+orchard
+order
+ordinary
+organ
+orient
+original
+orphan
+ostrich
+other
+outdoor
+outer
+output
+outside
+oval
+oven
+over
+own
+owner
+oxygen
+oyster
+ozone
+pact
+paddle
+page
+pair
+palace
+palm
+panda
+panel
+panic
+panther
+paper
+parade
+parent
+park
+parrot
+party
+pass
+patch
+path
+patient
+patrol
+pattern
+pause
+pave
+payment
+peace
+peanut
+pear
+peasant
+pelican
+pen
+penalty
+pencil
+people
+pepper
+perfect
+permit
+person
+pet
+phone
+photo
+phrase
+physical
+piano
+picnic
+picture
+piece
+pig
+pigeon
+pill
+pilot
+pink
+pioneer
+pipe
+pistol
+pitch
+pizza
+place
+planet
+plastic
+plate
+play
+please
+pledge
+pluck
+plug
+plunge
+poem
+poet
+point
+polar
+pole
+police
+pond
+pony
+pool
+popular
+portion
+position
+possible
+post
+potato
+pottery
+poverty
+powder
+power
+practice
+praise
+predict
+prefer
+prepare
+present
+pretty
+prevent
+price
+pride
+primary
+print
+priority
+prison
+private
+prize
+problem
+process
+produce
+profit
+program
+project
+promote
+proof
+property
+prosper
+protect
+proud
+provide
+public
+pudding
+pull
+pulp
+pulse
+pumpkin
+punch
+pupil
+puppy
+purchase
+purity
+purpose
+purse
+push
+put
+puzzle
+pyramid
+quality
+quantum
+quarter
+question
+quick
+quit
+quiz
+quote
+rabbit
+raccoon
+race
+rack
+radar
+radio
+rail
+rain
+raise
+rally
+ramp
+ranch
+random
+range
+rapid
+rare
+rate
+rather
+raven
+raw
+razor
+ready
+real
+reason
+rebel
+rebuild
+recall
+receive
+recipe
+record
+recycle
+reduce
+reflect
+reform
+refuse
+region
+regret
+regular
+reject
+relax
+release
+relief
+rely
+remain
+remember
+remind
+remove
+render
+renew
+rent
+reopen
+repair
+repeat
+replace
+report
+require
+rescue
+resemble
+resist
+resource
+response
+result
+retire
+retreat
+return
+reunion
+reveal
+review
+reward
+rhythm
+rib
+ribbon
+rice
+rich
+ride
+ridge
+rifle
+right
+rigid
+ring
+riot
+ripple
+risk
+ritual
+rival
+river
+road
+roast
+robot
+robust
+rocket
+romance
+roof
+rookie
+room
+rose
+rotate
+rough
+round
+route
+royal
+rubber
+rude
+rug
+rule
+run
+runway
+rural
+sad
+saddle
+sadness
+safe
+sail
+salad
+salmon
+salon
+salt
+salute
+same
+sample
+sand
+satisfy
+satoshi
+sauce
+sausage
+save
+say
+scale
+scan
+scare
+scatter
+scene
+scheme
+school
+science
+scissors
+scorpion
+scout
+scrap
+screen
+script
+scrub
+sea
+search
+season
+seat
+second
+secret
+section
+security
+seed
+seek
+segment
+select
+sell
+seminar
+senior
+sense
+sentence
+series
+service
+session
+settle
+setup
+seven
+shadow
+shaft
+shallow
+share
+shed
+shell
+sheriff
+shield
+shift
+shine
+ship
+shiver
+shock
+shoe
+shoot
+shop
+short
+shoulder
+shove
+shrimp
+shrug
+shuffle
+shy
+sibling
+sick
+side
+siege
+sight
+sign
+silent
+silk
+silly
+silver
+similar
+simple
+since
+sing
+siren
+sister
+situate
+six
+size
+skate
+sketch
+ski
+skill
+skin
+skirt
+skull
+slab
+slam
+sleep
+slender
+slice
+slide
+slight
+slim
+slogan
+slot
+slow
+slush
+small
+smart
+smile
+smoke
+smooth
+snack
+snake
+snap
+sniff
+snow
+soap
+soccer
+social
+sock
+soda
+soft
+solar
+soldier
+solid
+solution
+solve
+someone
+song
+soon
+sorry
+sort
+soul
+sound
+soup
+source
+south
+space
+spare
+spatial
+spawn
+speak
+special
+speed
+spell
+spend
+sphere
+spice
+spider
+spike
+spin
+spirit
+split
+spoil
+sponsor
+spoon
+sport
+spot
+spray
+spread
+spring
+spy
+square
+squeeze
+squirrel
+stable
+stadium
+staff
+stage
+stairs
+stamp
+stand
+start
+state
+stay
+steak
+steel
+stem
+step
+stereo
+stick
+still
+sting
+stock
+stomach
+stone
+stool
+story
+stove
+strategy
+street
+strike
+strong
+struggle
+student
+stuff
+stumble
+style
+subject
+submit
+subway
+success
+such
+sudden
+suffer
+sugar
+suggest
+suit
+summer
+sun
+sunny
+sunset
+super
+supply
+supreme
+sure
+surface
+surge
+surprise
+surround
+survey
+suspect
+sustain
+swallow
+swamp
+swap
+swarm
+swear
+sweet
+swift
+swim
+swing
+switch
+sword
+symbol
+symptom
+syrup
+system
+table
+tackle
+tag
+tail
+talent
+talk
+tank
+tape
+target
+task
+taste
+tattoo
+taxi
+teach
+team
+tell
+ten
+tenant
+tennis
+tent
+term
+test
+text
+thank
+that
+theme
+then
+theory
+there
+they
+thing
+this
+thought
+three
+thrive
+throw
+thumb
+thunder
+ticket
+tide
+tiger
+tilt
+timber
+time
+tiny
+tip
+tired
+tissue
+title
+toast
+tobacco
+today
+toddler
+toe
+together
+toilet
+token
+tomato
+tomorrow
+tone
+tongue
+tonight
+tool
+tooth
+top
+topic
+topple
+torch
+tornado
+tortoise
+toss
+total
+tourist
+toward
+tower
+town
+toy
+track
+trade
+traffic
+tragic
+train
+transfer
+trap
+trash
+travel
+tray
+treat
+tree
+trend
+trial
+tribe
+trick
+trigger
+trim
+trip
+trophy
+trouble
+truck
+true
+truly
+trumpet
+trust
+truth
+try
+tube
+tuition
+tumble
+tuna
+tunnel
+turkey
+turn
+turtle
+twelve
+twenty
+twice
+twin
+twist
+two
+type
+typical
+ugly
+umbrella
+unable
+unaware
+uncle
+uncover
+under
+undo
+unfair
+unfold
+unhappy
+uniform
+unique
+unit
+universe
+unknown
+unlock
+until
+unusual
+unveil
+update
+upgrade
+uphold
+upon
+upper
+upset
+urban
+urge
+usage
+use
+used
+useful
+useless
+usual
+utility
+vacant
+vacuum
+vague
+valid
+valley
+valve
+van
+vanish
+vapor
+various
+vast
+vault
+vehicle
+velvet
+vendor
+venture
+venue
+verb
+verify
+version
+very
+vessel
+veteran
+viable
+vibrant
+vicious
+victory
+video
+view
+village
+vintage
+violin
+virtual
+virus
+visa
+visit
+visual
+vital
+vivid
+vocal
+voice
+void
+volcano
+volume
+vote
+voyage
+wage
+wagon
+wait
+walk
+wall
+walnut
+want
+warfare
+warm
+warrior
+wash
+wasp
+waste
+water
+wave
+way
+wealth
+weapon
+wear
+weasel
+weather
+web
+wedding
+weekend
+weird
+welcome
+west
+wet
+whale
+what
+wheat
+wheel
+when
+where
+whip
+whisper
+wide
+width
+wife
+wild
+will
+win
+window
+wine
+wing
+wink
+winner
+winter
+wire
+wisdom
+wise
+wish
+witness
+wolf
+woman
+wonder
+wood
+wool
+word
+work
+world
+worry
+worth
+wrap
+wreck
+wrestle
+wrist
+write
+wrong
+yard
+year
+yellow
+you
+young
+youth
+zebra
+zero
+zone
+zoo`.split("\n");
+const SLIP39_WORDS = `academic
+acid
+acne
+acquire
+acrobat
+activity
+actress
+adapt
+adequate
+adjust
+admit
+adorn
+adult
+advance
+advocate
+afraid
+again
+agency
+agree
+aide
+aircraft
+airline
+airport
+ajar
+alarm
+album
+alcohol
+alien
+alive
+alpha
+already
+alto
+aluminum
+always
+amazing
+ambition
+amount
+amuse
+analysis
+anatomy
+ancestor
+ancient
+angel
+angry
+animal
+answer
+antenna
+anxiety
+apart
+aquatic
+arcade
+arena
+argue
+armed
+artist
+artwork
+aspect
+auction
+august
+aunt
+average
+aviation
+avoid
+award
+away
+axis
+axle
+beam
+beard
+beaver
+become
+bedroom
+behavior
+being
+believe
+belong
+benefit
+best
+beyond
+bike
+biology
+birthday
+bishop
+black
+blanket
+blessing
+blimp
+blind
+blue
+body
+bolt
+boring
+born
+both
+boundary
+bracelet
+branch
+brave
+breathe
+briefing
+broken
+brother
+browser
+bucket
+budget
+building
+bulb
+bulge
+bumpy
+bundle
+burden
+burning
+busy
+buyer
+cage
+calcium
+camera
+campus
+canyon
+capacity
+capital
+capture
+carbon
+cards
+careful
+cargo
+carpet
+carve
+category
+cause
+ceiling
+center
+ceramic
+champion
+change
+charity
+check
+chemical
+chest
+chew
+chubby
+cinema
+civil
+class
+clay
+cleanup
+client
+climate
+clinic
+clock
+clogs
+closet
+clothes
+club
+cluster
+coal
+coastal
+coding
+column
+company
+corner
+costume
+counter
+course
+cover
+cowboy
+cradle
+craft
+crazy
+credit
+cricket
+criminal
+crisis
+critical
+crowd
+crucial
+crunch
+crush
+crystal
+cubic
+cultural
+curious
+curly
+custody
+cylinder
+daisy
+damage
+dance
+darkness
+database
+daughter
+deadline
+deal
+debris
+debut
+decent
+decision
+declare
+decorate
+decrease
+deliver
+demand
+density
+deny
+depart
+depend
+depict
+deploy
+describe
+desert
+desire
+desktop
+destroy
+detailed
+detect
+device
+devote
+diagnose
+dictate
+diet
+dilemma
+diminish
+dining
+diploma
+disaster
+discuss
+disease
+dish
+dismiss
+display
+distance
+dive
+divorce
+document
+domain
+domestic
+dominant
+dough
+downtown
+dragon
+dramatic
+dream
+dress
+drift
+drink
+drove
+drug
+dryer
+duckling
+duke
+duration
+dwarf
+dynamic
+early
+earth
+easel
+easy
+echo
+eclipse
+ecology
+edge
+editor
+educate
+either
+elbow
+elder
+election
+elegant
+element
+elephant
+elevator
+elite
+else
+email
+emerald
+emission
+emperor
+emphasis
+employer
+empty
+ending
+endless
+endorse
+enemy
+energy
+enforce
+engage
+enjoy
+enlarge
+entrance
+envelope
+envy
+epidemic
+episode
+equation
+equip
+eraser
+erode
+escape
+estate
+estimate
+evaluate
+evening
+evidence
+evil
+evoke
+exact
+example
+exceed
+exchange
+exclude
+excuse
+execute
+exercise
+exhaust
+exotic
+expand
+expect
+explain
+express
+extend
+extra
+eyebrow
+facility
+fact
+failure
+faint
+fake
+false
+family
+famous
+fancy
+fangs
+fantasy
+fatal
+fatigue
+favorite
+fawn
+fiber
+fiction
+filter
+finance
+findings
+finger
+firefly
+firm
+fiscal
+fishing
+fitness
+flame
+flash
+flavor
+flea
+flexible
+flip
+float
+floral
+fluff
+focus
+forbid
+force
+forecast
+forget
+formal
+fortune
+forward
+founder
+fraction
+fragment
+frequent
+freshman
+friar
+fridge
+friendly
+frost
+froth
+frozen
+fumes
+funding
+furl
+fused
+galaxy
+game
+garbage
+garden
+garlic
+gasoline
+gather
+general
+genius
+genre
+genuine
+geology
+gesture
+glad
+glance
+glasses
+glen
+glimpse
+goat
+golden
+graduate
+grant
+grasp
+gravity
+gray
+greatest
+grief
+grill
+grin
+grocery
+gross
+group
+grownup
+grumpy
+guard
+guest
+guilt
+guitar
+gums
+hairy
+hamster
+hand
+hanger
+harvest
+have
+havoc
+hawk
+hazard
+headset
+health
+hearing
+heat
+helpful
+herald
+herd
+hesitate
+hobo
+holiday
+holy
+home
+hormone
+hospital
+hour
+huge
+human
+humidity
+hunting
+husband
+hush
+husky
+hybrid
+idea
+identify
+idle
+image
+impact
+imply
+improve
+impulse
+include
+income
+increase
+index
+indicate
+industry
+infant
+inform
+inherit
+injury
+inmate
+insect
+inside
+install
+intend
+intimate
+invasion
+involve
+iris
+island
+isolate
+item
+ivory
+jacket
+jerky
+jewelry
+join
+judicial
+juice
+jump
+junction
+junior
+junk
+jury
+justice
+kernel
+keyboard
+kidney
+kind
+kitchen
+knife
+knit
+laden
+ladle
+ladybug
+lair
+lamp
+language
+large
+laser
+laundry
+lawsuit
+leader
+leaf
+learn
+leaves
+lecture
+legal
+legend
+legs
+lend
+length
+level
+liberty
+library
+license
+lift
+likely
+lilac
+lily
+lips
+liquid
+listen
+literary
+living
+lizard
+loan
+lobe
+location
+losing
+loud
+loyalty
+luck
+lunar
+lunch
+lungs
+luxury
+lying
+lyrics
+machine
+magazine
+maiden
+mailman
+main
+makeup
+making
+mama
+manager
+mandate
+mansion
+manual
+marathon
+march
+market
+marvel
+mason
+material
+math
+maximum
+mayor
+meaning
+medal
+medical
+member
+memory
+mental
+merchant
+merit
+method
+metric
+midst
+mild
+military
+mineral
+minister
+miracle
+mixed
+mixture
+mobile
+modern
+modify
+moisture
+moment
+morning
+mortgage
+mother
+mountain
+mouse
+move
+much
+mule
+multiple
+muscle
+museum
+music
+mustang
+nail
+national
+necklace
+negative
+nervous
+network
+news
+nuclear
+numb
+numerous
+nylon
+oasis
+obesity
+object
+observe
+obtain
+ocean
+often
+olympic
+omit
+oral
+orange
+orbit
+order
+ordinary
+organize
+ounce
+oven
+overall
+owner
+paces
+pacific
+package
+paid
+painting
+pajamas
+pancake
+pants
+papa
+paper
+parcel
+parking
+party
+patent
+patrol
+payment
+payroll
+peaceful
+peanut
+peasant
+pecan
+penalty
+pencil
+percent
+perfect
+permit
+petition
+phantom
+pharmacy
+photo
+phrase
+physics
+pickup
+picture
+piece
+pile
+pink
+pipeline
+pistol
+pitch
+plains
+plan
+plastic
+platform
+playoff
+pleasure
+plot
+plunge
+practice
+prayer
+preach
+predator
+pregnant
+premium
+prepare
+presence
+prevent
+priest
+primary
+priority
+prisoner
+privacy
+prize
+problem
+process
+profile
+program
+promise
+prospect
+provide
+prune
+public
+pulse
+pumps
+punish
+puny
+pupal
+purchase
+purple
+python
+quantity
+quarter
+quick
+quiet
+race
+racism
+radar
+railroad
+rainbow
+raisin
+random
+ranked
+rapids
+raspy
+reaction
+realize
+rebound
+rebuild
+recall
+receiver
+recover
+regret
+regular
+reject
+relate
+remember
+remind
+remove
+render
+repair
+repeat
+replace
+require
+rescue
+research
+resident
+response
+result
+retailer
+retreat
+reunion
+revenue
+review
+reward
+rhyme
+rhythm
+rich
+rival
+river
+robin
+rocky
+romantic
+romp
+roster
+round
+royal
+ruin
+ruler
+rumor
+sack
+safari
+salary
+salon
+salt
+satisfy
+satoshi
+saver
+says
+scandal
+scared
+scatter
+scene
+scholar
+science
+scout
+scramble
+screw
+script
+scroll
+seafood
+season
+secret
+security
+segment
+senior
+shadow
+shaft
+shame
+shaped
+sharp
+shelter
+sheriff
+short
+should
+shrimp
+sidewalk
+silent
+silver
+similar
+simple
+single
+sister
+skin
+skunk
+slap
+slavery
+sled
+slice
+slim
+slow
+slush
+smart
+smear
+smell
+smirk
+smith
+smoking
+smug
+snake
+snapshot
+sniff
+society
+software
+soldier
+solution
+soul
+source
+space
+spark
+speak
+species
+spelling
+spend
+spew
+spider
+spill
+spine
+spirit
+spit
+spray
+sprinkle
+square
+squeeze
+stadium
+staff
+standard
+starting
+station
+stay
+steady
+step
+stick
+stilt
+story
+strategy
+strike
+style
+subject
+submit
+sugar
+suitable
+sunlight
+superior
+surface
+surprise
+survive
+sweater
+swimming
+swing
+switch
+symbolic
+sympathy
+syndrome
+system
+tackle
+tactics
+tadpole
+talent
+task
+taste
+taught
+taxi
+teacher
+teammate
+teaspoon
+temple
+tenant
+tendency
+tension
+terminal
+testify
+texture
+thank
+that
+theater
+theory
+therapy
+thorn
+threaten
+thumb
+thunder
+ticket
+tidy
+timber
+timely
+ting
+tofu
+together
+tolerate
+total
+toxic
+tracks
+traffic
+training
+transfer
+trash
+traveler
+treat
+trend
+trial
+tricycle
+trip
+triumph
+trouble
+true
+trust
+twice
+twin
+type
+typical
+ugly
+ultimate
+umbrella
+uncover
+undergo
+unfair
+unfold
+unhappy
+union
+universe
+unkind
+unknown
+unusual
+unwrap
+upgrade
+upstairs
+username
+usher
+usual
+valid
+valuable
+vampire
+vanish
+various
+vegan
+velvet
+venture
+verdict
+verify
+very
+veteran
+vexed
+victim
+video
+view
+vintage
+violence
+viral
+visitor
+visual
+vitamins
+vocal
+voice
+volume
+voter
+voting
+walnut
+warmth
+warn
+watch
+wavy
+wealthy
+weapon
+webcam
+welcome
+welfare
+western
+width
+wildlife
+window
+wine
+wireless
+wisdom
+withdraw
+wits
+wolf
+woman
+work
+worthy
+wrap
+wrist
+writing
+wrote
+year
+yelp
+yield
+yoga
+zero`.split("\n");
+const BIP39_MAP = new Map(BIP39_WORDS.map((w,i)=>[w,i]));
+const SLIP39_MAP = new Map(SLIP39_WORDS.map((w,i)=>[w,i]));
+const te = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
+
+function utf8Fallback(s){
+  // Standards-compatible UTF-8 fallback for older Safari/WebViews.
+  const encoded = unescape(encodeURIComponent(s));
+  const out = new Uint8Array(encoded.length);
+  for(let i=0;i<encoded.length;i++) out[i]=encoded.charCodeAt(i);
+  return out;
+}
+
+function bytesToHex(b){ return [...b].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function hexToBytes(hex){
+  const h=hex.replace(/^0x/,'').replace(/\s+/g,'');
+  if(!/^[0-9a-fA-F]*$/.test(h)||h.length%2) throw new Error('Invalid hex');
+  const out=new Uint8Array(h.length/2); for(let i=0;i<out.length;i++) out[i]=parseInt(h.slice(i*2,i*2+2),16); return out;
+}
+function concatBytes(...arrs){ const n=arrs.reduce((s,a)=>s+a.length,0), out=new Uint8Array(n); let p=0; for(const a of arrs){out.set(a,p);p+=a.length;} return out; }
+function utf8(s){ return te ? te.encode(s) : utf8Fallback(s); }
+function u32be(n){ return Uint8Array.of((n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255); }
+function bigintToBytes(n,len){ const out=new Uint8Array(len); let x=BigInt(n); for(let i=len-1;i>=0;i--){out[i]=Number(x&255n);x>>=8n;} if(x!==0n) throw new Error('Integer too large'); return out; }
+function bytesToBigint(b){ let x=0n; for(const v of b)x=(x<<8n)|BigInt(v); return x; }
+function equalBytes(a,b){ if(a.length!==b.length)return false; let v=0; for(let i=0;i<a.length;i++)v|=a[i]^b[i]; return v===0; }
+function webCryptoAvailable(){
+  return typeof window !== 'undefined' &&
+         typeof window.crypto !== 'undefined' &&
+         typeof window.crypto.subtle !== 'undefined';
+}
+function requireWebCrypto(){
+  if(!webCryptoAvailable()){
+    throw new Error('WebCrypto is unavailable in this Safari context. Open this file in a current Safari version, or serve it over HTTPS/localhost. No seed or private-key data is sent anywhere.');
+  }
+}
+async function sha256(b){ requireWebCrypto(); return new Uint8Array(await window.crypto.subtle.digest('SHA-256', b)); }
+async function hmac(hash,key,data){ requireWebCrypto(); const k=await window.crypto.subtle.importKey('raw',key,{name:'HMAC',hash:{name:hash}},false,['sign']); return new Uint8Array(await window.crypto.subtle.sign('HMAC',k,data)); }
+async function hmac512(key,data){ return hmac('SHA-512',key,data); }
+async function pbkdf2(hash,password,salt,iterations,len){
+  requireWebCrypto();
+  const key=await window.crypto.subtle.importKey('raw',password,'PBKDF2',false,['deriveBits']);
+  const bits=await window.crypto.subtle.deriveBits({name:'PBKDF2',hash,iterations,salt},key,len*8);
+  return new Uint8Array(bits);
+}
+
+// RIPEMD-160, used only for Bitcoin HASH160/fingerprints.
+function ripemd160(msg){
+  const zl=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,7,4,13,1,10,6,15,3,12,0,9,5,2,14,11,8,3,10,14,4,9,15,8,1,2,7,0,6,13,11,5,12,1,9,11,10,0,8,12,4,13,3,7,15,14,5,6,2,4,0,5,9,7,12,2,10,14,1,3,8,11,6,15,13];
+  const zr=[5,14,7,0,9,2,11,4,13,6,15,8,1,10,3,12,6,11,3,7,0,13,5,10,14,15,8,12,4,9,1,2,15,5,1,3,7,14,6,9,11,8,12,2,10,0,4,13,8,6,4,1,3,11,15,0,5,12,2,13,9,7,10,14,12,15,10,4,1,5,8,7,6,2,13,14,0,3,9,11];
+  const sl=[11,14,15,12,5,8,7,9,11,13,14,15,6,7,9,8,7,6,8,13,11,9,7,15,7,12,15,9,11,7,13,12,11,13,6,7,14,9,13,15,14,8,13,6,5,12,7,5,11,12,14,15,14,15,9,8,9,14,5,6,8,6,5,12,9,15,5,11,6,8,13,12,5,12,13,14,11,8,5,6];
+  const sr=[8,9,9,11,13,15,15,5,7,7,8,11,14,14,12,6,9,13,15,7,12,8,9,11,7,7,12,7,6,15,13,11,9,7,15,11,8,6,6,14,12,13,5,14,13,13,7,5,15,5,8,11,14,14,6,14,6,9,12,9,12,5,15,8,8,5,12,9,12,5,14,6,8,13,6,5,15,13,11,11];
+  const kl=[0x00000000,0x5a827999,0x6ed9eba1,0x8f1bbcdc,0xa953fd4e];
+  const kr=[0x50a28be6,0x5c4dd124,0x6d703ef3,0x7a6d76e9,0x00000000];
+  const rol=(x,n)=>((x<<n)|(x>>>(32-n)))>>>0;
+  const f=(j,x,y,z)=>j<16?(x^y^z):j<32?((x&y)|(~x&z)):j<48?((x|~y)^z):j<64?((x&z)|(y&~z)):(x^(y|~z));
+  const len=msg.length, bitLen=BigInt(len)*8n;
+  const total=((len+1+8+63)>>6)<<6, b=new Uint8Array(total); b.set(msg); b[len]=0x80;
+  for(let i=0;i<8;i++) b[total-8+i]=Number((bitLen>>(8n*BigInt(i)))&255n);
+  let h0=0x67452301,h1=0xefcdab89,h2=0x98badcfe,h3=0x10325476,h4=0xc3d2e1f0;
+  for(let off=0;off<total;off+=64){
+    const x=new Uint32Array(16); for(let i=0;i<16;i++){const p=off+i*4;x[i]=(b[p]|(b[p+1]<<8)|(b[p+2]<<16)|(b[p+3]<<24))>>>0;}
+    let al=h0,bl=h1,cl=h2,dl=h3,el=h4, ar=h0,br=h1,cr=h2,dr=h3,er=h4;
+    for(let j=0;j<80;j++){
+      let t=(rol((al+f(j,bl,cl,dl)+x[zl[j]]+kl[(j/16)|0])>>>0,sl[j])+el)>>>0; al=el;el=dl;dl=rol(cl,10);cl=bl;bl=t;
+      t=(rol((ar+f(79-j,br,cr,dr)+x[zr[j]]+kr[(j/16)|0])>>>0,sr[j])+er)>>>0; ar=er;er=dr;dr=rol(cr,10);cr=br;br=t;
+    }
+    const t=(h1+cl+dr)>>>0; h1=(h2+dl+er)>>>0; h2=(h3+el+ar)>>>0; h3=(h4+al+br)>>>0; h4=(h0+bl+cr)>>>0; h0=t;
+  }
+  const out=new Uint8Array(20), hs=[h0,h1,h2,h3,h4];
+  hs.forEach((v,i)=>{out[i*4]=v&255;out[i*4+1]=(v>>>8)&255;out[i*4+2]=(v>>>16)&255;out[i*4+3]=(v>>>24)&255;}); return out;
+}
+async function hash160(pub){ return ripemd160(await sha256(pub)); }
+
+const BASE58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function base58Encode(bytes){
+  let x=bytesToBigint(bytes), s=''; while(x>0n){const r=Number(x%58n);x/=58n;s=BASE58[r]+s;}
+  for(const b of bytes){if(b===0)s='1'+s;else break;} return s||'1';
+}
+async function base58Check(payload){ const a=await sha256(payload), b=await sha256(a); return base58Encode(concatBytes(payload,b.slice(0,4))); }
+
+// secp256k1 arithmetic for BIP32 public keys.
+const P=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2Fn;
+const N=0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n;
+const GX=0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n;
+const GY=0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n;
+const G={x:GX,y:GY};
+const mod=(a,m=P)=>{const r=a%m;return r>=0n?r:r+m;};
+function inv(a,m=P){ let b=m,u=1n,v=0n,x=mod(a,m); while(x!==0n){const q=b/x; [b,x]=[x,b-q*x]; [u,v]=[v,u-q*v];} if(b!==1n)throw new Error('Inverse does not exist'); return mod(u,m); }
+function pointAdd(a,b){
+  if(!a)return b;if(!b)return a;
+  if(a.x===b.x){ if(mod(a.y+b.y)===0n)return null; const m=mod((3n*a.x*a.x)*inv(2n*a.y)); const x=mod(m*m-2n*a.x); return {x,y:mod(m*(a.x-x)-a.y)}; }
+  const m=mod((b.y-a.y)*inv(b.x-a.x)); const x=mod(m*m-a.x-b.x); return {x,y:mod(m*(a.x-x)-a.y)};
+}
+function pointMul(k,p=G){ let n=mod(k,N), r=null, q=p; while(n>0n){if(n&1n)r=pointAdd(r,q);q=pointAdd(q,q);n>>=1n;} return r; }
+function pubFromPriv(priv){ const k=bytesToBigint(priv); if(k<=0n||k>=N)throw new Error('Invalid secp256k1 private key'); const p=pointMul(k); return concatBytes(Uint8Array.of((p.y&1n)?3:2),bigintToBytes(p.x,32)); }
+
+async function fingerprint(pub){ return (await hash160(pub)).slice(0,4); }
+class HDNode{
+  constructor(priv,chain,depth=0,parentFp=new Uint8Array(4),childNum=0){this.priv=priv;this.chain=chain;this.depth=depth;this.parentFp=parentFp;this.childNum=childNum>>>0;this.pub=pubFromPriv(priv);}
+  static async fromSeed(seed){ const I=await hmac512(utf8('Bitcoin seed'),seed), k=I.slice(0,32); const x=bytesToBigint(k); if(x===0n||x>=N)throw new Error('Invalid BIP32 master key'); return new HDNode(k,I.slice(32)); }
+  async child(index){
+    const hardened=(index>>>0)>=0x80000000; const data=concatBytes(hardened?concatBytes(Uint8Array.of(0),this.priv):this.pub,u32be(index>>>0));
+    const I=await hmac512(this.chain,data), il=bytesToBigint(I.slice(0,32)); if(il>=N)throw new Error('Invalid BIP32 child');
+    const ki=mod(il+bytesToBigint(this.priv),N); if(ki===0n)throw new Error('Invalid BIP32 child');
+    return new HDNode(bigintToBytes(ki,32),I.slice(32),this.depth+1,await fingerprint(this.pub),index>>>0);
+  }
+  async derive(path){ let n=this; const parts=path.split('/'); if(parts[0]!=='m')throw new Error('Path must start m'); for(const part of parts.slice(1)){ if(!part)continue; const hard=/['hH]$/.test(part), num=parseInt(part.replace(/['hH]$/,''),10); if(!Number.isInteger(num)||num<0||num>=0x80000000)throw new Error('Bad derivation path'); n=await n.child((num+(hard?0x80000000:0))>>>0); } return n; }
+  async xprv(){ const payload=concatBytes(Uint8Array.of(0x04,0x88,0xAD,0xE4,this.depth),this.parentFp,u32be(this.childNum),this.chain,Uint8Array.of(0),this.priv); return base58Check(payload); }
+  async xpub(){ const payload=concatBytes(Uint8Array.of(0x04,0x88,0xB2,0x1E,this.depth),this.parentFp,u32be(this.childNum),this.chain,this.pub); return base58Check(payload); }
+}
+async function wif(priv){ return base58Check(concatBytes(Uint8Array.of(0x80),priv,Uint8Array.of(1))); }
+
+// BIP39
+async function entropyToMnemonic(entropy){
+  if(![16,20,24,28,32].includes(entropy.length))throw new Error('BIP39 entropy must be 128–256 bits in 32-bit steps');
+  const cs=entropy.length*8/32, hash=await sha256(entropy); let bits=''; for(const b of entropy)bits+=b.toString(2).padStart(8,'0'); bits+=hash[0].toString(2).padStart(8,'0').slice(0,cs);
+  const words=[]; for(let i=0;i<bits.length;i+=11)words.push(BIP39_WORDS[parseInt(bits.slice(i,i+11),2)]); return words.join(' ');
+}
+async function mnemonicToEntropy(m){
+  const words=m.normalize('NFKD').trim().toLowerCase().split(/\s+/).filter(Boolean); if(![12,15,18,21,24].includes(words.length))throw new Error('Invalid BIP39 word count');
+  let bits=''; for(const w of words){const idx=BIP39_MAP.get(w);if(idx===undefined)throw new Error(`Not a BIP39 word: ${w}`);bits+=idx.toString(2).padStart(11,'0');}
+  const entLen=Math.floor(bits.length*32/33), csLen=bits.length-entLen, entBits=bits.slice(0,entLen), csBits=bits.slice(entLen), ent=new Uint8Array(entLen/8);
+  for(let i=0;i<ent.length;i++)ent[i]=parseInt(entBits.slice(i*8,i*8+8),2); const hash=await sha256(ent), expected=hash[0].toString(2).padStart(8,'0').slice(0,csLen); if(expected!==csBits)throw new Error('Invalid BIP39 checksum'); return ent;
+}
+async function mnemonicToSeed(m,pass=''){ return pbkdf2('SHA-512',utf8(m.normalize('NFKD')),utf8('mnemonic'+pass.normalize('NFKD')),2048,64); }
+
+// SLIP39 single-share decoder/recovery (20-word Trezor Single-share Backup).
+const SLIP_RADIX_BITS=10, SLIP_META_WORDS=7, SLIP_CHECKSUM_WORDS=3, SLIP_ITER_WORDS=2;
+function slipIntFromIndices(indices){let x=0n;for(const i of indices)x=x*1024n+BigInt(i);return x;}
+function slipIntToIndices(value,length,bits){const mask=(1n<<BigInt(bits))-1n,out=[];for(let i=0;i<length;i++)out.unshift(Number((value>>(BigInt(i)*BigInt(bits)))&mask));return out;}
+function slipEncodeBigInt(value,len){return bigintToBytes(value,len);}
+function rs1024Polymod(data){const GEN=[0xe0e040,0x1c1c080,0x3838100,0x7070200,0xe0e0009,0x1c0c2412,0x38086c24,0x3090fc48,0x21b1f890,0x3f3f120];let chk=1;for(const v of data){const b=chk>>20;chk=((chk&0xfffff)<<10)^v;for(let i=0;i<10;i++)if((b>>i)&1)chk^=GEN[i];}return chk;}
+function asciiBytes(s){const a=[];for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);if(c>255)throw new Error('SLIP39 passphrase must use printable ASCII');a.push(c);}return a;}
+function slipChecksumOK(data,extendable){const custom=asciiBytes(extendable?'shamir_extendable':'shamir');return rs1024Polymod(custom.concat(data))===1;}
+function decodeSlip39Share(phrase){
+  const words=phrase.trim().toLowerCase().split(/\s+/).filter(Boolean); if(words.length!==20)throw new Error('This offline tool currently accepts a 20-word SLIP39 share');
+  const data=words.map(w=>{const i=SLIP39_MAP.get(w);if(i===undefined)throw new Error(`Not a SLIP39 word: ${w}`);return i;});
+  const paddingLen=(10*(data.length-SLIP_META_WORDS))%16; if(paddingLen>8)throw new Error('Invalid SLIP39 mnemonic length');
+  const idExp=Number(slipIntFromIndices(data.slice(0,2))), identifier=idExp>>(4+1), extendable=(idExp>>4)&1, iterationExponent=idExp&15;
+  if(!slipChecksumOK(data,extendable))throw new Error('Invalid SLIP39 checksum');
+  const params=slipIntToIndices(slipIntFromIndices(data.slice(2,4)),5,4);
+  const [groupIndex,gt0,gc0,memberIndex,mt0]=params, groupThreshold=gt0+1,groupCount=gc0+1,memberThreshold=mt0+1;
+  if(groupCount<groupThreshold)throw new Error('SLIP39 group threshold exceeds group count');
+  const valueData=data.slice(4,-3), valueInt=slipIntFromIndices(valueData), valueByteCount=Math.floor((10*valueData.length-paddingLen+7)/8), share=slipEncodeBigInt(valueInt,valueByteCount);
+  return {identifier,extendable,iterationExponent,groupIndex,groupThreshold,groupCount,memberIndex,memberThreshold,share};
+}
+async function slipRound(round,passBytes,exp,salt,secret){const pwd=Uint8Array.from([round,...passBytes]), s=Uint8Array.from([...salt,...secret]), count=(10000*(2**exp))/4;return pbkdf2('SHA-256',pwd,s,count,secret.length);}
+async function slipDecrypt(ems,passphrase,identifier,extendable,exp){
+  if(!/^[\x20-\x7E]*$/.test(passphrase))throw new Error('SLIP39 passphrase must contain printable ASCII characters only');
+  let IL=ems.slice(0,ems.length/2), IR=ems.slice(ems.length/2); const pass=[...utf8(passphrase)], id=slipIntToIndices(BigInt(identifier),2,8), salt=extendable?[]:[...asciiBytes('shamir'),...id];
+  for(const round of [3,2,1,0]){const f=await slipRound(round,pass,exp,salt,[...IR]), t=new Uint8Array(IL.length);for(let i=0;i<t.length;i++)t[i]=IL[i]^f[i];IL=IR;IR=t;} return concatBytes(IR,IL);
+}
+async function recoverSlip39Single(phrase,passphrase=''){
+  const d=decodeSlip39Share(phrase);
+  if(d.groupIndex!==0||d.groupThreshold!==1||d.groupCount!==1||d.memberIndex!==0||d.memberThreshold!==1)
+    throw new Error(`This is not a canonical 1-of-1 SLIP39 Single-share Backup.`);
+  const secret=await slipDecrypt(d.share,passphrase,d.identifier,d.extendable,d.iterationExponent);
+  return {secret,meta:d};
+}
+
+
+function slipChecksumCreate(data,extendable){
+  const custom=asciiBytes(extendable?'shamir_extendable':'shamir');
+  const values=custom.concat(data,[0,0,0]);
+  const polymod=rs1024Polymod(values)^1;
+  return [
+    (polymod>>20)&1023,
+    (polymod>>10)&1023,
+    polymod&1023
+  ];
+}
+function slipComplete20From17(words17){
+  if(words17.length!==17)throw new Error('SLIP39 checksum generation requires exactly 17 data words.');
+  const data=words17.map(w=>{
+    const i=SLIP39_MAP.get(w);
+    if(i===undefined)throw new Error(`Not a SLIP39 word: ${w}`);
+    return i;
+  });
+  const idExp=Number(slipIntFromIndices(data.slice(0,2)));
+  const extendable=(idExp>>4)&1;
+  const checksum=slipChecksumCreate(data,extendable);
+  return words17.concat(checksum.map(i=>SLIP39_WORDS[i]));
+}
+
+async function bip39ValidFinalWordSet(prefixWords,targetWords){
+  if(!((targetWords===12&&prefixWords.length===11)||(targetWords===24&&prefixWords.length===23))) return null;
+
+  const prefixBits=prefixWords.map(w=>{
+    const idx=BIP39_MAP.get(w);
+    if(idx===undefined)throw new Error(`Not a BIP39 word: ${w}`);
+    return idx.toString(2).padStart(11,'0');
+  }).join('');
+
+  const entropyBits = targetWords===12 ? 128 : 256;
+  const checksumBits = targetWords===12 ? 4 : 8;
+  const remainingEntropyBits = entropyBits-prefixBits.length; // 7 for 12 words, 3 for 24 words
+  const possibilities = 1<<remainingEntropyBits;
+  const valid=new Set();
+
+  for(let suffix=0;suffix<possibilities;suffix++){
+    const entBits=prefixBits+suffix.toString(2).padStart(remainingEntropyBits,'0');
+    const ent=new Uint8Array(entropyBits/8);
+    for(let i=0;i<ent.length;i++) ent[i]=parseInt(entBits.slice(i*8,i*8+8),2);
+    const hash=await sha256(ent);
+    const cs=hash[0].toString(2).padStart(8,'0').slice(0,checksumBits);
+    const lastBits=(suffix.toString(2).padStart(remainingEntropyBits,'0')+cs);
+    valid.add(parseInt(lastBits,2));
+  }
+  return valid;
+}
+
+// UI
+const $=id=>document.getElementById(id); let mode='dice',entries=[],dragIndex=null,runCounter=0;
+let cardsWithReplacement = true;
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+function normalizeWords(s){return s.trim().toLowerCase().split(/\s+/).filter(Boolean).join(' ');}
+function physical(){return mode==='dice'||mode==='coin'||mode==='cards';}
+function sourceBits(){
+  if(mode==='dice') return entries.length*Math.log2(6);
+  if(mode==='coin') return entries.length;
+  if(mode==='cards'){
+    if(cardsWithReplacement){
+      // Independent uniformly random draws from 52 possibilities.
+      return entries.length*Math.log2(52);
+    }
+    // Ordered draws without replacement from a uniformly shuffled 52-card deck.
+    // Entropy after k cards = log2(52P k). Full deck ≈225.58 bits.
+    let bits=0; for(let i=0;i<entries.length;i++) bits+=Math.log2(52-i); return bits;
+  }
+  return 0;
+}
+function normalizedPhysical(){
+  if(mode==='dice') return entries.join('');
+  if(mode==='coin') return entries.map(x=>x==='H'?'1':'0').join('');
+  return entries.join(',');
+}
+function renderEntries(){
+  const box=$('rolls');box.innerHTML='';
+  const cardEmpty=cardsWithReplacement
+    ? 'Select each card in the exact order drawn. Return it to the deck and reshuffle before every draw; repeats are allowed.'
+    : 'Select cards in the exact order drawn from one freshly shuffled deck. Each card can be used once.';
+  if(!entries.length)box.innerHTML=`<div class="empty">${mode==='dice'?'Tap here and press 1–6 to capture rolls.':mode==='coin'?'Tap here and press H/T (or 1/0) to capture flips.':cardEmpty}</div>`;
+  else entries.forEach((value,index)=>{const chip=document.createElement('div');chip.className='roll-chip';chip.draggable=true;chip.innerHTML=`<span>${esc(value)}</span><button class="chip-remove" type="button">×</button><div class="chip-nav"><button type="button" data-move="-1">◀</button><button type="button" data-move="1">▶</button></div>`;chip.querySelector('.chip-remove').onclick=e=>{e.stopPropagation();entries.splice(index,1);refresh();};chip.querySelectorAll('[data-move]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();const j=index+Number(btn.dataset.move);if(j>=0&&j<entries.length){[entries[index],entries[j]]=[entries[j],entries[index]];refresh();}});chip.ondragstart=()=>{dragIndex=index;chip.classList.add('dragging');};chip.ondragend=()=>{dragIndex=null;document.querySelectorAll('.roll-chip').forEach(x=>x.classList.remove('dragging','drop-before'));};chip.ondragover=e=>{e.preventDefault();chip.classList.add('drop-before');};chip.ondragleave=()=>chip.classList.remove('drop-before');chip.ondrop=e=>{e.preventDefault();if(dragIndex===null||dragIndex===index)return;const moved=entries.splice(dragIndex,1)[0];let t=index;if(dragIndex<index)t--;entries.splice(t,0,moved);refresh();};box.appendChild(chip);});
+  const bits=sourceBits(),unit=mode==='dice'?'rolls':mode==='coin'?'flips':'draws';
+  let extra='';
+  if(mode==='cards') extra=cardsWithReplacement?' · replacement ON':` · ${52-entries.length} cards remaining`;
+  const threshold=bits>=256?'≥256-bit source':bits>=128?'≥128-bit source':'low entropy — inspection only';
+  $('stats').innerHTML=`<strong>${entries.length}</strong> ${unit} · ≈ <strong>${bits.toFixed(2)}</strong> entropy bits${extra} · <span class="${bits>=128?'status-good':'status-low'}">${threshold}</span>`;
+}
+async function hdHtml(seed){
+  const root=await HDNode.fromSeed(seed), account=await root.derive("m/84'/0'/0'"), first=await root.derive("m/84'/0'/0'/0/0"), fp=await fingerprint(root.pub);
+  return `<div><strong>BIP32 root material</strong></div><div class="value">${bytesToHex(seed)}</div><br><div><strong>Master fingerprint</strong></div><div class="value">${bytesToHex(fp)}</div><br><div><strong>Master private key</strong></div><div class="value">${bytesToHex(root.priv)}</div><br><div><strong>Master xprv</strong></div><div class="value">${await root.xprv()}</div><br><div><strong>Master xpub</strong></div><div class="value">${await root.xpub()}</div><br><div><strong>BIP84 account xpub</strong> <span class="value">m/84'/0'/0'</span></div><div class="value">${await account.xpub()}</div><br><div><strong>First receive private key</strong> <span class="value">m/84'/0'/0'/0/0</span></div><div class="value">${bytesToHex(first.priv)}</div><br><div><strong>First receive WIF</strong></div><div class="value">${await wif(first.priv)}</div>`;
+}
+async function bip39Card(title,entropy,mnemonic,pass,note=''){const seed=await mnemonicToSeed(mnemonic,pass);return `<div class="card"><h3>${title}</h3>${note}<div><strong>BIP39 entropy</strong></div><div class="value">${bytesToHex(entropy)}</div><br><div><strong>Mnemonic</strong></div><div class="value">${esc(mnemonic)}</div><br><div><strong>BIP39 seed</strong></div><div class="value">${bytesToHex(seed)}</div><br>${await hdHtml(seed)}</div>`;}
+function mnemonicSummary(m12,m24,bits,pass){
+  const backup = pass ? '<strong>Passphrase in use:</strong> the words alone do not restore the wallet; the exact BIP39 passphrase is also required.' : '<strong>Empty passphrase:</strong> these words alone reproduce the corresponding generated wallet.';
+  const s12 = bits>=128 ? '<span class="status-good">Source entropy ≥128 bits</span>' : `<span class="status-low">Only ${bits.toFixed(2)} source bits — test/inspection only</span>`;
+  const s24 = bits>=256 ? '<span class="status-good">Source entropy ≥256 bits</span>' : `<span class="status-low">Valid 24-word mnemonic; physical source security is limited to ${bits.toFixed(2)} bits</span>`;
+  return `<div class="mnemonic-summary"><h3>BIP39 mnemonic outputs</h3><div class="muted">The 12-word and 24-word phrases below are two different deterministic wallets derived from the same physical input. ${backup}</div><div class="mnemonic-grid"><div class="mnemonic-box"><strong>12-word BIP39 mnemonic</strong><div class="phrase">${esc(m12)}</div><div class="mnemonic-note">${s12}</div></div><div class="mnemonic-box"><strong>24-word BIP39 mnemonic</strong><div class="phrase">${esc(m24)}</div><div class="mnemonic-note">${s24}</div></div></div></div>`;
+}
+async function exactBip39Card(words,mnemonic,pass){const seed=await mnemonicToSeed(mnemonic,pass);return `<div class="card source-card"><h3>${words}-word BIP39 — exact source wallet</h3><div><strong>Mnemonic</strong></div><div class="value">${esc(mnemonic)}</div><br>${await hdHtml(seed)}</div>`;}
+async function exactSlip39Card(phrase,secret,meta){return `<div class="card source-card"><h3>Trezor 20-word SLIP39 — exact source wallet</h3><div><strong>SLIP39 share</strong></div><div class="value">${esc(phrase)}</div><br><div><strong>Recovered BIP32 master seed</strong></div><div class="value">${bytesToHex(secret)}</div><br><div class="muted">Identifier ${meta.identifier} · ${meta.extendable?'extendable':'non-extendable'} · iteration exponent ${meta.iterationExponent}</div><br>${await hdHtml(secret)}</div>`;}
+async function generatePhysical(token){if(!entries.length){$('results').innerHTML=`<div class="card muted">Start entering ${mode==='dice'?'dice rolls':mode==='coin'?'coin flips':'cards'}.</div>`;return;}const prefix=mode==='dice'?'DICE:':mode==='coin'?'COIN:':'CARDS:';const digest=await sha256(utf8(prefix+normalizedPhysical()));if(token!==runCounter)return;const e12=digest.slice(0,16),e24=digest,p=$('passphrase').value.normalize('NFKD'),m12=await entropyToMnemonic(e12),m24=await entropyToMnemonic(e24),bits=sourceBits(),n12=bits<128?`<div class="warn"><strong>Low entropy:</strong> ${bits.toFixed(2)} bits of source randomness. Hashing does not create additional unpredictability.</div>`:'',n24=bits<256?`<div class="warn"><strong>Below 256-bit source:</strong> security is bounded by ${bits.toFixed(2)} bits of physical randomness.</div>`:'';const summary=mnemonicSummary(m12,m24,bits,p),c1=await bip39Card('12-word BIP39 wallet',e12,m12,p,n12),c2=await bip39Card('24-word BIP39 wallet',e24,m24,p,n24);if(token===runCounter)$('results').innerHTML=summary+`<div class="grid">${c1}${c2}</div>`;}
+async function generateBip39(expected,token){const phrase=normalizeWords($('wordInput').value),words=phrase?phrase.split(' '):[];if(!phrase){$('wordStatus').textContent=`0 / ${expected} words`;$('results').innerHTML=`<div class="card muted">Enter a ${expected}-word BIP39 phrase.</div>`;return;}let entropy;try{entropy=await mnemonicToEntropy(phrase);}catch(e){$('wordStatus').innerHTML=`<span class="status-low">${words.length} / ${expected} words · ${esc(e.message)}</span>`;$('results').innerHTML=`<div class="warn">Waiting for a valid ${expected}-word BIP39 mnemonic.</div>`;return;}if(words.length!==expected){$('wordStatus').innerHTML=`<span class="status-low">Valid BIP39, but ${words.length} words rather than selected ${expected}</span>`;return;}if(token!==runCounter)return;$('wordStatus').innerHTML=`<span class="status-good">Valid ${expected}-word BIP39 mnemonic</span>`;const p=$('passphrase').value.normalize('NFKD');let e12,m12,e24,m24;if(expected===12){e12=entropy;m12=phrase;e24=await sha256(concatBytes(utf8('BIP39-12:'),entropy));m24=await entropyToMnemonic(e24);}else{e24=entropy;m24=phrase;e12=entropy.slice(0,16);m12=await entropyToMnemonic(e12);}const warning=`<div class="conversion-alert"><strong>Different wallet:</strong> this converted mnemonic is not an alternate backup for the source wallet.</div>`;const src=await exactBip39Card(expected,phrase,p),c1=await bip39Card('12-word BIP39',e12,m12,p,expected===12?'<div class="status-good">Exact source mnemonic.</div>':warning),c2=await bip39Card('24-word BIP39',e24,m24,p,expected===24?'<div class="status-good">Exact source mnemonic.</div>':warning);if(token===runCounter)$('results').innerHTML=src+`<h2>12 / 24-word outputs</h2><div class="grid">${c1}${c2}</div>`;}
+async function generateSlip39(token){const phrase=normalizeWords($('wordInput').value),words=phrase?phrase.split(' '):[];if(!phrase){$('wordStatus').textContent='0 / 20 words';$('results').innerHTML='<div class="card muted">Enter a Trezor 20-word SLIP39 Single-share Backup.</div>';return;}if(words.length!==20){$('wordStatus').innerHTML=`<span class="status-low">${words.length} / 20 words</span>`;$('results').innerHTML='<div class="warn">Waiting for 20 SLIP39 words.</div>';return;}try{const pass=$('passphrase').value,rec=await recoverSlip39Single(phrase,pass);if(token!==runCounter)return;$('wordStatus').innerHTML='<span class="status-good">Valid/recoverable 20-word SLIP39 Single-share Backup</span>';const digest=await sha256(concatBytes(utf8('SLIP39-BIP39-CONVERSION:'),rec.secret)),e12=rec.secret.length>=16?rec.secret.slice(0,16):digest.slice(0,16),e24=digest,m12=await entropyToMnemonic(e12),m24=await entropyToMnemonic(e24);const warn=`<div class="conversion-alert"><strong>These are new wallets.</strong> The BIP39 phrases below do not restore the original Trezor SLIP39 wallet.</div>`,src=await exactSlip39Card(phrase,rec.secret,rec.meta),c1=await bip39Card('12-word BIP39 conversion',e12,m12,''),c2=await bip39Card('24-word BIP39 conversion',e24,m24,'');if(token===runCounter)$('results').innerHTML=src+`<h2>Deterministic BIP39 conversion wallets</h2>${warn}<div class="grid">${c1}${c2}</div>`;}catch(e){$('wordStatus').innerHTML='<span class="status-low">Not recoverable as a 1-of-1 SLIP39 backup</span>';$('results').innerHTML=`<div class="warn"><strong>SLIP39 recovery failed:</strong> ${esc(e.message)}<br><br>If this is a Multi-share Backup, one 20-word share is intentionally insufficient.</div>`;}}
+async function generateLive(){const token=++runCounter;try{if(mode==='dice'||mode==='coin'||mode==='cards')await generatePhysical(token);else if(mode==='bip39-12')await generateBip39(12,token);else if(mode==='bip39-24')await generateBip39(24,token);else await generateSlip39(token);}catch(e){if(token===runCounter)$('results').innerHTML=`<div class="warn"><strong>Error:</strong> ${esc(e.message)}</div>`;}}
+
+let phraseWords = [];
+let suggestionIndex = 0;
+let bip39FinalWordIndexes = null;
+let bip39FinalCacheKey = '';
+
+function phraseTargetCount(){
+  if(mode==='bip39-12') return 12;
+  if(mode==='bip39-24') return 24;
+  if(mode==='slip39-20') return 20;
+  return 0;
+}
+function userEditableWordLimit(){
+  // In 20-word SLIP39, words 18-20 are RS1024 checksum words and are generated.
+  return mode==='slip39-20' ? 17 : phraseTargetCount();
+}
+function activeWordList(){ return mode==='slip39-20' ? SLIP39_WORDS : BIP39_WORDS; }
+function activeWordMap(){ return mode==='slip39-20' ? SLIP39_MAP : BIP39_MAP; }
+
+function syncPhraseValue(){
+  $('wordInput').value = phraseWords.join(' ');
+}
+
+function isSlipChecksumIndex(index){
+  return mode==='slip39-20' && phraseWords.length===20 && index>=17;
+}
+
+function renderPhraseChips(){
+  const wrap=$('wordChips');
+  wrap.innerHTML='';
+  phraseWords.forEach((word,index)=>{
+    const checksum=isSlipChecksumIndex(index);
+    const chip=document.createElement('span');
+    chip.className='seed-chip'+(checksum?' checksum-chip':'');
+    chip.innerHTML=checksum
+      ? `<span class="seed-chip-index">${index+1}</span><span>${esc(word)}</span><span class="checksum-badge">checksum</span>`
+      : `<span class="seed-chip-index">${index+1}</span><span>${esc(word)}</span><button type="button" class="seed-chip-remove" aria-label="Remove ${esc(word)}" title="Remove">×</button>`;
+
+    if(!checksum){
+      chip.querySelector('button').onclick=async e=>{
+        e.preventDefault();
+        // If SLIP39 checksum has already been generated, strip it first.
+        if(mode==='slip39-20' && phraseWords.length===20) phraseWords=phraseWords.slice(0,17);
+        phraseWords.splice(index,1);
+        bip39FinalWordIndexes=null;
+        bip39FinalCacheKey='';
+        syncPhraseValue();
+        renderPhraseChips();
+        await prepareFinalWordConstraints();
+        await updateAutocomplete();
+        generateLive();
+        $('wordEntry').focus();
+      };
+    }
+    wrap.appendChild(chip);
+  });
+}
+
+function setWordStatusMessage(message,isError=false){
+  $('wordStatus').innerHTML=isError
+    ? `<span class="word-error">${esc(message)}</span>`
+    : esc(message);
+}
+
+async function prepareFinalWordConstraints(){
+  if(mode!=='bip39-12' && mode!=='bip39-24'){
+    bip39FinalWordIndexes=null;
+    bip39FinalCacheKey='';
+    return;
+  }
+  const target=phraseTargetCount();
+  if(phraseWords.length!==target-1){
+    bip39FinalWordIndexes=null;
+    bip39FinalCacheKey='';
+    return;
+  }
+  const key=mode+':'+phraseWords.join(' ');
+  if(key===bip39FinalCacheKey && bip39FinalWordIndexes) return;
+  bip39FinalWordIndexes=await bip39ValidFinalWordSet(phraseWords,target);
+  bip39FinalCacheKey=key;
+}
+
+
+function slip39AllowedIndexForNextWord(index){
+  if(mode!=='slip39-20') return true;
+  const pos=phraseWords.length+1; // 1-based next word position
+
+  // Canonical Trezor-style 1-of-1 / single-share metadata:
+  // words 3-4 encode groupIndex=0, groupThreshold=1, groupCount=1,
+  // memberIndex=0, memberThreshold=1 -> 20 zero metadata bits -> index 0, index 0.
+  if(pos===3 || pos===4) return index===0; // "academic"
+
+  // A 20-word SLIP39 share carries a 128-bit share value padded to 130 bits.
+  // Therefore the top two bits of word 5 must be zero => index 0..255.
+  if(pos===5) return index<256;
+
+  return true;
+}
+
+function slip39PositionHint(){
+  if(mode!=='slip39-20') return '';
+  const pos=phraseWords.length+1;
+  if(pos===3 || pos===4) return `Word ${pos} is fixed by 1-of-1 SLIP39 metadata: academic.`;
+  if(pos===5) return 'Word 5 is restricted by SLIP39 128-bit padding; only the first 256 dictionary words are valid.';
+  if(pos>=18) return 'Words 18–20 are generated checksum words.';
+  return '';
+}
+function matchingWords(prefix){
+  const p=prefix.trim().toLowerCase();
+  if(!p) return [];
+  const list=activeWordList();
+  const matches=[];
+  const target=phraseTargetCount();
+  const finalBip39=(mode==='bip39-12'||mode==='bip39-24') && phraseWords.length===target-1;
+
+  for(let i=0;i<list.length;i++){
+    const w=list[i];
+    if(!w.startsWith(p)) continue;
+    if(mode==='slip39-20' && !slip39AllowedIndexForNextWord(i)) continue;
+    if(finalBip39 && (!bip39FinalWordIndexes || !bip39FinalWordIndexes.has(i))) continue;
+    matches.push({word:w,index:i});
+    if(matches.length>=10) break;
+  }
+  return matches;
+}
+
+async function updateAutocomplete(){
+  const input=$('wordEntry');
+  const menu=$('wordSuggestions');
+  const editableLimit=userEditableWordLimit();
+  const prefix=input.value.trim().toLowerCase();
+
+  await prepareFinalWordConstraints();
+  const matches=(phraseWords.length>=editableLimit) ? [] : matchingWords(prefix);
+
+  suggestionIndex=Math.min(suggestionIndex,Math.max(0,matches.length-1));
+  menu.innerHTML='';
+
+  if(!prefix || !matches.length){
+    menu.hidden=true;
+    input.setAttribute('aria-expanded','false');
+    if(prefix && (mode==='bip39-12'||mode==='bip39-24') && phraseWords.length===phraseTargetCount()-1){
+      setWordStatusMessage('No checksum-valid BIP39 final word matches that prefix.',true);
+    }
+    return;
+  }
+
+  if((mode==='bip39-12'||mode==='bip39-24') && phraseWords.length===phraseTargetCount()-1){
+    setWordStatusMessage('Final-word suggestions are filtered to checksum-valid BIP39 words only.',false);
+  } else if(mode==='slip39-20' && slip39PositionHint()){
+    setWordStatusMessage(slip39PositionHint(),false);
+  }
+
+  matches.forEach((m,i)=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='word-suggestion'+(i===suggestionIndex?' active':'');
+    b.setAttribute('role','option');
+    b.setAttribute('aria-selected',i===suggestionIndex?'true':'false');
+    const rest=m.word.slice(prefix.length);
+    b.innerHTML=`<span><span class="word-suggestion-prefix">${esc(m.word.slice(0,prefix.length))}</span><span class="word-suggestion-rest">${esc(rest)}</span></span><span class="word-suggestion-num">#${m.index+1}</span>`;
+    b.onmousedown=e=>e.preventDefault();
+    b.onclick=async e=>{
+      e.preventDefault();
+      await acceptPhraseWord(m.word);
+    };
+    menu.appendChild(b);
+  });
+  menu.hidden=false;
+  input.setAttribute('aria-expanded','true');
+}
+
+async function autoCompleteSlip39ChecksumIfReady(){
+  if(mode==='slip39-20' && phraseWords.length===17){
+    phraseWords=slipComplete20From17(phraseWords);
+    syncPhraseValue();
+    renderPhraseChips();
+    $('wordEntry').value='';
+    $('wordEntry').disabled=true;
+    $('wordEntry').placeholder='Checksum words 18–20 generated automatically';
+    setWordStatusMessage('17 data words accepted. SLIP39 checksum words 18–20 were generated automatically.',false);
+    await generateLive();
+    return true;
+  }
+  return false;
+}
+
+async function acceptPhraseWord(word){
+  const w=String(word).trim().toLowerCase();
+  const editableLimit=userEditableWordLimit();
+
+  if(!activeWordMap().has(w)){
+    setWordStatusMessage(`"${w}" is not in the selected ${mode==='slip39-20'?'SLIP39':'BIP39'} word list.`,true);
+    return false;
+  }
+
+  if(mode==='slip39-20'){
+    const idx=SLIP39_MAP.get(w);
+    const pos=phraseWords.length+1;
+    if(!slip39AllowedIndexForNextWord(idx)){
+      if(pos===3 || pos===4){
+        setWordStatusMessage(`Word ${pos} must be "academic" for a canonical 1-of-1 SLIP39 Single-share Backup.`,true);
+      }else if(pos===5){
+        setWordStatusMessage(`"${w}" is a SLIP39 dictionary word, but it is not valid at word 5 of a 20-word/128-bit share because the two padding bits must be zero.`,true);
+      }else{
+        setWordStatusMessage(`"${w}" is not valid at SLIP39 word position ${pos}.`,true);
+      }
+      return false;
+    }
+  }
+
+  if(phraseWords.length>=editableLimit){
+    setWordStatusMessage(
+      mode==='slip39-20'
+        ? 'SLIP39 accepts 17 manually entered data words; checksum words 18–20 are generated automatically.'
+        : `This input accepts exactly ${editableLimit} words.`,
+      true
+    );
+    return false;
+  }
+
+  await prepareFinalWordConstraints();
+  if((mode==='bip39-12'||mode==='bip39-24') && phraseWords.length===phraseTargetCount()-1){
+    const idx=BIP39_MAP.get(w);
+    if(!bip39FinalWordIndexes || !bip39FinalWordIndexes.has(idx)){
+      setWordStatusMessage(`"${w}" is a BIP39 dictionary word, but it is not a checksum-valid final word for this mnemonic.`,true);
+      return false;
+    }
+  }
+
+  phraseWords.push(w);
+  $('wordEntry').value='';
+  suggestionIndex=0;
+  bip39FinalWordIndexes=null;
+  bip39FinalCacheKey='';
+  syncPhraseValue();
+  renderPhraseChips();
+
+  if(await autoCompleteSlip39ChecksumIfReady()) return true;
+
+  await prepareFinalWordConstraints();
+  await updateAutocomplete();
+  generateLive();
+  return true;
+}
+
+async function acceptPastedPhrase(text){
+  const incoming=normalizeWords(text);
+  if(!incoming)return;
+  const words=incoming.split(' ');
+  const map=activeWordMap();
+  const invalid=words.filter(w=>!map.has(w));
+
+  if(invalid.length){
+    setWordStatusMessage(`Paste rejected. Invalid ${mode==='slip39-20'?'SLIP39':'BIP39'} word${invalid.length>1?'s':''}: ${invalid.join(', ')}`,true);
+    return;
+  }
+
+  if(mode==='slip39-20'){
+    // Permit either the 17 data words (then generate checksum), or a complete valid
+    // 20-word share. Never accept arbitrary 18/19-word partial checksum input.
+    if(phraseWords.length!==0){
+      setWordStatusMessage('For SLIP39 paste, clear the current phrase and paste either 17 data words or a complete 20-word share.',true);
+      return;
+    }
+    if(words.length===17){
+      for(let i=0;i<17;i++){
+        const idx=SLIP39_MAP.get(words[i]);
+        const pos=i+1;
+        if((pos===3||pos===4) && idx!==0){
+          setWordStatusMessage(`Paste rejected. Word ${pos} must be "academic" for canonical 1-of-1 SLIP39 metadata.`,true);
+          return;
+        }
+        if(pos===5 && idx>=256){
+          setWordStatusMessage('Paste rejected. SLIP39 word 5 violates the required 128-bit padding constraint.',true);
+          return;
+        }
+      }
+      phraseWords=[...words];
+      syncPhraseValue();
+      renderPhraseChips();
+      await autoCompleteSlip39ChecksumIfReady();
+      return;
+    }
+    if(words.length===20){
+      try{
+        const d=decodeSlip39Share(words.join(' '));
+        if(d.groupIndex!==0 || d.groupThreshold!==1 || d.groupCount!==1 || d.memberIndex!==0 || d.memberThreshold!==1){
+          throw new Error('not canonical 1-of-1 metadata');
+        }
+      }catch(e){
+        setWordStatusMessage('Paste rejected. The 20-word phrase is not a valid canonical 1-of-1 SLIP39 Single-share Backup.',true);
+        return;
+      }
+      phraseWords=[...words];
+      syncPhraseValue();
+      renderPhraseChips();
+      $('wordEntry').disabled=true;
+      $('wordEntry').placeholder='Complete valid SLIP39 share loaded';
+      setWordStatusMessage('Valid 20-word SLIP39 share accepted. Words 18–20 are checksum words.',false);
+      generateLive();
+      return;
+    }
+    setWordStatusMessage('SLIP39 paste must contain exactly 17 data words or a complete valid 20-word share.',true);
+    return;
+  }
+
+  const target=phraseTargetCount();
+  if(phraseWords.length+words.length>target){
+    setWordStatusMessage(`Paste rejected. It would exceed the ${target}-word limit.`,true);
+    return;
+  }
+
+  const combined=[...phraseWords,...words];
+  if(combined.length===target){
+    try{
+      await mnemonicToEntropy(combined.join(' '));
+    }catch(e){
+      setWordStatusMessage(`Paste rejected. All words are in the BIP39 dictionary, but the complete ${target}-word mnemonic has an invalid checksum.`,true);
+      return;
+    }
+  }
+
+  phraseWords.push(...words);
+  syncPhraseValue();
+  renderPhraseChips();
+  bip39FinalWordIndexes=null;
+  bip39FinalCacheKey='';
+  await prepareFinalWordConstraints();
+  await updateAutocomplete();
+  generateLive();
+}
+
+function resetPhraseInput(){
+  phraseWords=[];
+  bip39FinalWordIndexes=null;
+  bip39FinalCacheKey='';
+  $('wordInput').value='';
+  $('wordEntry').value='';
+  $('wordEntry').disabled=false;
+  $('wordSuggestions').hidden=true;
+  $('wordEntry').setAttribute('aria-expanded','false');
+  suggestionIndex=0;
+  renderPhraseChips();
+}
+
+function renderTouchPad(){
+  const pad=$('touchPad'); pad.innerHTML=''; pad.classList.toggle('cards-pad',mode==='cards'); if(!physical())return;
+  if(mode==='cards'){
+    const suits=[['♠','S','Spades'],['♥','H','Hearts'],['♦','D','Diamonds'],['♣','C','Clubs']];
+    const ranks=[['A','A'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8'],['9','9'],['10','10'],['J','J'],['Q','Q'],['K','K']];
+    suits.forEach(([symbol,code,name])=>{
+      const group=document.createElement('div'); group.className='suit-group';
+      const title=document.createElement('div'); title.className='suit-title'; title.textContent=`${symbol} ${name}`; group.appendChild(title);
+      const buttons=document.createElement('div'); buttons.className='suit-buttons';
+      ranks.forEach(([label,rank])=>{
+        const value=`${rank}${code}`; const b=document.createElement('button'); b.type='button'; b.className='touch-key card-key'; b.textContent=`${label}${symbol}`; b.disabled=!cardsWithReplacement&&entries.includes(value);
+        b.onclick=e=>{e.preventDefault(); if(!cardsWithReplacement&&(entries.length>=52||entries.includes(value)))return; entries.push(value); refresh();}; buttons.appendChild(b);
+      });
+      group.appendChild(buttons); pad.appendChild(group);
+    });
+    const actions=document.createElement('div'); actions.className='cards-actions';
+    const u=document.createElement('button');u.type='button';u.className='touch-key secondary';u.textContent='⌫ Undo last card';u.onclick=e=>{e.preventDefault();if(entries.length){entries.pop();refresh();}};actions.appendChild(u);pad.appendChild(actions);return;
+  }
+  const keys=mode==='dice'?['1','2','3','4','5','6']:['H','T'];
+  keys.forEach(v=>{const b=document.createElement('button');b.type='button';b.className='touch-key';b.textContent=v;b.onclick=e=>{e.preventDefault();entries.push(v);refresh();};pad.appendChild(b);});
+  const u=document.createElement('button');u.type='button';u.className='touch-key secondary';u.textContent='⌫ Undo';u.onclick=e=>{e.preventDefault();if(entries.length){entries.pop();refresh();}};pad.appendChild(u);
+  const k=document.createElement('button');k.type='button';k.className='touch-key secondary';k.textContent='⌨ Keyboard';k.onclick=e=>{e.preventDefault();focusMobile();};pad.appendChild(k);
+}
+function focusMobile(){if(!physical()||mode==='cards')return;const i=$('mobileCaptureInput');i.value='';i.setAttribute('inputmode',mode==='dice'?'numeric':'text');i.focus({preventScroll:true});}
+function updateModeUI(){
+  const p=physical();$('captureShell').hidden=!p;$('touchPad').hidden=!p;$('stats').hidden=!p;$('clear').hidden=!p;$('wordInputWrap').hidden=p;$('cardReplacementWrap').hidden=mode!=='cards';
+  if(mode==='dice'){$('captureTitle').textContent='Dice rolls';$('keyHint').textContent='Tap here, then press 1–6';$('passphraseLabel').textContent='Optional BIP39 passphrase';}
+  else if(mode==='coin'){$('captureTitle').textContent='Coin flips';$('keyHint').textContent='Tap here, then press H/T';$('passphraseLabel').textContent='Optional BIP39 passphrase';}
+  else if(mode==='cards'){$('captureTitle').textContent='Playing cards';$('keyHint').textContent=(cardsWithReplacement?'With replacement · repeats allowed':'Without replacement · unique cards only')+' · A/1, 2–10, J, Q/D, K/R';$('cardReplacementHelp').textContent=cardsWithReplacement?'Return the card and thoroughly reshuffle before every draw. Repeats are allowed.':'Use one freshly shuffled deck and draw each card at most once.';$('passphraseLabel').textContent='Optional BIP39 passphrase';}
+  else if(mode==='bip39-12'){$('wordInputLabel').textContent='12-word BIP39 seed phrase';$('wordEntry').placeholder='Type BIP39 word 1 of 12…';$('passphraseLabel').textContent='Optional BIP39 passphrase';}
+  else if(mode==='bip39-24'){$('wordInputLabel').textContent='24-word BIP39 seed phrase';$('wordEntry').placeholder='Type BIP39 word 1 of 24…';$('passphraseLabel').textContent='Optional BIP39 passphrase';}
+  else{$('wordInputLabel').textContent='Trezor 20-word SLIP39 Single-share Backup (enter first 17 words)';$('wordEntry').placeholder='Type SLIP39 data word 1 of 17…';$('passphraseLabel').textContent='Optional SLIP39/Trezor passphrase';}
+}
+function setMode(m){if(m===mode)return;mode=m;entries=[];resetPhraseInput();$('wordStatus').textContent='';$('passphrase').value='';renderTouchPad();updateModeUI();refresh();if(!physical())$('wordEntry').focus();}
+function refresh(){if(physical()){renderEntries();if(mode==='cards')renderTouchPad();}generateLive();}
+document.querySelectorAll('input[name="mode"]').forEach(r=>r.onchange=()=>setMode(r.value));
+document.querySelectorAll('input[name="cardReplacement"]').forEach(r=>r.onchange=()=>{
+  const next=r.value==='with';
+  if(next===cardsWithReplacement)return;
+  cardsWithReplacement=next;
+  entries=[]; // avoid reinterpreting an existing sequence under a different sampling model
+  updateModeUI();
+  refresh();
+});
+document.addEventListener('keydown',e=>{if(!physical()||e.target===$('passphrase')||e.target===$('mobileCaptureInput'))return;if(e.key==='Backspace'){if(entries.length){e.preventDefault();entries.pop();refresh();}return;}let v=null;if(mode==='dice'&&/^[1-6]$/.test(e.key))v=e.key;if(mode==='coin'){const k=e.key.toLowerCase();if(k==='h'||k==='1')v='H';if(k==='t'||k==='0')v='T';}if(v!==null){e.preventDefault();entries.push(v);refresh();}});
+$('mobileCaptureInput').oninput=e=>{const raw=e.target.value;for(const ch of raw){if(mode==='dice'&&/^[1-6]$/.test(ch))entries.push(ch);else if(mode==='coin'){const k=ch.toLowerCase();if(k==='h'||k==='1')entries.push('H');if(k==='t'||k==='0')entries.push('T');}}e.target.value='';refresh();};
+$('captureShell').onclick=e=>{if(!e.target.closest('button'))focusMobile();};
+
+$('wordEntry').addEventListener('input',async()=>{
+  $('wordEntry').value=$('wordEntry').value.toLowerCase().replace(/[^a-z]/g,'');
+  suggestionIndex=0;
+  await updateAutocomplete();
+});
+$('wordEntry').addEventListener('keydown',async e=>{
+  const menu=$('wordSuggestions');
+  const buttons=[...menu.querySelectorAll('.word-suggestion')];
+
+  if(e.key==='ArrowDown' && buttons.length){
+    e.preventDefault();
+    suggestionIndex=(suggestionIndex+1)%buttons.length;
+    updateAutocomplete();
+    return;
+  }
+  if(e.key==='ArrowUp' && buttons.length){
+    e.preventDefault();
+    suggestionIndex=(suggestionIndex-1+buttons.length)%buttons.length;
+    updateAutocomplete();
+    return;
+  }
+  if((e.key==='Enter'||e.key==='Tab') && $('wordEntry').value){
+    if(buttons.length){
+      e.preventDefault();
+      const btn=buttons[suggestionIndex];
+      const candidate=(btn && btn.textContent) ? btn.textContent.replace(/#\d+$/,'').trim() : '';
+      if(candidate) await acceptPhraseWord(candidate);
+      return;
+    }
+    const exact=$('wordEntry').value.trim().toLowerCase();
+    if(activeWordMap().has(exact)){
+      e.preventDefault();
+      await acceptPhraseWord(exact);
+    }else if(e.key==='Enter'){
+      e.preventDefault();
+      setWordStatusMessage(`"${exact}" is not a valid ${mode==='slip39-20'?'SLIP39':'BIP39'} word.`,true);
+    }
+    return;
+  }
+  if((e.key===' '||e.key===',') && $('wordEntry').value){
+    e.preventDefault();
+    const exact=$('wordEntry').value.trim().toLowerCase();
+    if(activeWordMap().has(exact)) await acceptPhraseWord(exact);
+    else setWordStatusMessage(`"${exact}" is not a valid complete ${mode==='slip39-20'?'SLIP39':'BIP39'} word. Choose an autocomplete suggestion.`,true);
+    return;
+  }
+  if(e.key==='Backspace' && !$('wordEntry').value && phraseWords.length){
+    e.preventDefault();
+    if(mode==='slip39-20' && phraseWords.length===20){
+      phraseWords=phraseWords.slice(0,16); // remove generated checksum + data word 17
+      $('wordEntry').disabled=false;
+      $('wordEntry').placeholder='Type SLIP39 data word 17 of 17…';
+    }else{
+      phraseWords.pop();
+    }
+    bip39FinalWordIndexes=null;
+    bip39FinalCacheKey='';
+    syncPhraseValue();
+    renderPhraseChips();
+    await prepareFinalWordConstraints();
+    await updateAutocomplete();
+    generateLive();
+    return;
+  }
+  if(e.key==='Escape'){
+    $('wordSuggestions').hidden=true;
+    $('wordEntry').setAttribute('aria-expanded','false');
+  }
+});
+$('wordEntry').addEventListener('paste',async e=>{
+  e.preventDefault();
+  await acceptPastedPhrase((e.clipboardData||window.clipboardData).getData('text'));
+});
+$('wordEntry').addEventListener('blur',()=>{
+  setTimeout(()=>{$('wordSuggestions').hidden=true;$('wordEntry').setAttribute('aria-expanded','false');},120);
+});
+$('wordEntry').addEventListener('focus',()=>{updateAutocomplete();});
+
+function showSafariCompatibilityWarning(){
+  if(webCryptoAvailable()) return;
+  const box=document.createElement('div');
+  box.className='warn';
+  box.style.marginBottom='16px';
+  box.textContent='Cryptographic functions are unavailable in this browser context. On iPhone/iPad/Mac, use a current Safari version and open via HTTPS or localhost. This app remains fully client-side.';
+  const host=document.querySelector('main') || document.body;
+  host.insertBefore(box, host.firstChild);
+}
+showSafariCompatibilityWarning();
+
+$('passphrase').oninput=()=>generateLive();
+$('clear').onclick=()=>{entries=[];refresh();};
+renderTouchPad();updateModeUI();renderPhraseChips();refresh();
+
+</script>
+</body>
+</html>
