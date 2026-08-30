@@ -180,6 +180,15 @@ dependencies {
     implementation(libs.security.crypto)
     implementation(libs.biometric)
 
+    // Fully offline, in-app recovery capture. Images remain in memory and no
+    // external camera/gallery application participates in the recovery flow.
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+    // Bundled Latin OCR model: never downloads code or model data at runtime.
+    implementation(libs.mlkit.text.recognition)
+
     // QR Code
     implementation(libs.zxing.core)
     implementation(libs.zxing.embedded)

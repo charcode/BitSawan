@@ -27,6 +27,7 @@ import com.gorunjinian.metrovault.core.qr.SeedQRUtils
 import com.gorunjinian.metrovault.core.ui.components.MnemonicInputField
 import com.gorunjinian.metrovault.core.ui.components.SecureMnemonicKeyboard
 import com.gorunjinian.metrovault.core.qr.configureForQRScanning
+import com.gorunjinian.metrovault.feature.wallet.create.recovery.OfflineMnemonicRecoveryDialog
 import com.journeyapps.barcodescanner.CompoundBarcodeView
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -141,6 +142,8 @@ private fun Step2SeedPhrase(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     var validationError by remember { mutableStateOf("") }
+    var showOfflineRecovery by remember { mutableStateOf(false) }
+    var showReplaceMnemonicWarning by remember { mutableStateOf(false) }
 
     // SeedQR Scanner state
     var isScanning by remember { mutableStateOf(false) }
@@ -343,6 +346,31 @@ private fun Step2SeedPhrase(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            OutlinedButton(
+                onClick = {
+                    validationError = ""
+                    if (mnemonicWords.isEmpty()) {
+                        isScanning = false
+                        barcodeView?.pause()
+                        showOfflineRecovery = true
+                    } else {
+                        showReplaceMnemonicWarning = true
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isScanning,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_search),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Recover from offline photo")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Button(
                 onClick = {
                     when {
@@ -387,6 +415,43 @@ private fun Step2SeedPhrase(
                 }
             )
         }
+    }
+
+    if (showOfflineRecovery) {
+        OfflineMnemonicRecoveryDialog(
+            expectedWordCount = expectedWordCount,
+            onDismiss = { showOfflineRecovery = false },
+            onConfirmed = { reviewedWords ->
+                onMnemonicWordsChange(reviewedWords)
+                onCurrentWordChange("")
+                showOfflineRecovery = false
+            },
+        )
+    }
+
+    if (showReplaceMnemonicWarning) {
+        AlertDialog(
+            onDismissRequest = { showReplaceMnemonicWarning = false },
+            title = { Text("Replace entered seed words?") },
+            text = {
+                Text("Starting photo recovery will clear the partial seed phrase already entered on this screen.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onMnemonicWordsChange(emptyList())
+                        onCurrentWordChange("")
+                        isScanning = false
+                        barcodeView?.pause()
+                        showReplaceMnemonicWarning = false
+                        showOfflineRecovery = true
+                    },
+                ) { Text("Clear and continue") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReplaceMnemonicWarning = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 
