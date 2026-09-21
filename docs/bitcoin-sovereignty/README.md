@@ -178,6 +178,10 @@ The technical modules use established Bitcoin formats where supported: [BIP32 hi
 
 This is an educational and operational risk framework, not personal investment, legal, tax, or physical-security advice. Jurisdiction-dependent actions require appropriate professional advice. No protocol removes all risk; the objective is to make catastrophic loss less likely, recovery more reliable, and trade-offs visible.
 
+## Further reading
+
+- [A Brief History of DIY Bitcoin Hardware Signing Devices](11-history-of-diy-bitcoin-hardware-signing-devices.md) — English translation of 九神二号's September 20, 2026 article, with a link to the original Chinese source.
+
 ## Version
 
 Version 0.2 — expanded risk map and lifecycle protocol. Review date: 2026-09-13.
